@@ -1,0 +1,62 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nosetests/
+.pytest_cache/
+vts/
+
+# IDEs
+.vscode/
+.idea/
+
+# virtualenv
+venv/
+.venv/
+ENV/
+env/
+
+# Wallpaper Engine test assets and output
+output/
+*.pkg
+*.tex
+*.mp4
+*.webm
+*.json
+*.html
+*.css
+*.js
