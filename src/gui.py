@@ -11,6 +11,15 @@ from src.tex_parser import extract_tex_file, HAS_PILLOW
 from src.video_extractor import extract_video_file, SUPPORTED_VIDEO_EXTENSIONS
 from src.wallpaper_browser import WallpaperBrowserDialog
 
+# Try to import tkinterdnd2 for drag-and-drop support (optional)
+try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD
+    HAS_DND = True
+except ImportError:
+    HAS_DND = False
+
+SUPPORTED_INPUT_EXTENSIONS = (".pkg", ".tex", *SUPPORTED_VIDEO_EXTENSIONS)
+
 # Colors
 BG_COLOR = "#121214"
 SURFACE_COLOR = "#1e1e24"
@@ -67,21 +76,21 @@ class ModernButton(tk.Button):
         self.bind("<Leave>", lambda e: self.configure(bg=normal_bg))
 
 
-class App(tk.Tk):
+class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
     def __init__(self):
         super().__init__()
-        
+
         self.title("Wallpaper Engine Asset Extractor")
         self.geometry("700x600")
         self.configure(bg=BG_COLOR)
         self.resizable(True, True)
-        
+
         # Set Window Icon if possible (fallback gracefully)
         try:
             self.iconbitmap("")
         except Exception:
             pass
-            
+
         # Variables
         self.input_path_var = tk.StringVar()
         self.output_path_var = tk.StringVar(value=str(get_default_output_dir()))
@@ -89,8 +98,12 @@ class App(tk.Tk):
         self.extract_all_mips_var = tk.BooleanVar(value=False)
         self.cleanup_non_images_var = tk.BooleanVar(value=True)
         self.is_running = False
-        
+
         self.create_widgets()
+
+        if HAS_DND:
+            self.drop_target_register(DND_FILES)
+            self.dnd_bind("<<Drop>>", self.on_drop)
         
     def create_widgets(self):
         # Apply style overrides
@@ -195,6 +208,16 @@ class App(tk.Tk):
             command=self.open_wallpaper_browser
         )
         detect_btn.grid(row=2, column=0, columnspan=3, sticky="w", pady=(10, 0))
+
+        # Drag & drop hint / availability indicator
+        dnd_text = (
+            "Tip: you can also drag & drop a wallpaper file anywhere in this window"
+            if HAS_DND else
+            "Install tkinterdnd2 (pip install tkinterdnd2) to enable drag & drop"
+        )
+        tk.Label(
+            input_frame, text=dnd_text, bg=BG_COLOR, fg=TEXT_MUTED, font=("Arial", 9, "italic")
+        ).grid(row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
 
         # Options Frame
         options_frame = tk.Frame(main_frame, bg=BG_COLOR)
@@ -309,6 +332,22 @@ class App(tk.Tk):
         self.wait_window(dialog)
         if dialog.selected_asset_path:
             self.input_path_var.set(str(dialog.selected_asset_path))
+
+    def on_drop(self, event):
+        paths = self.tk.splitlist(event.data)
+        if not paths:
+            return
+
+        path = Path(paths[0])
+        if path.suffix.lower() not in SUPPORTED_INPUT_EXTENSIONS:
+            messagebox.showerror(
+                "Unsupported File",
+                f"'{path.name}' is not a supported wallpaper file.\n"
+                "Drop a .pkg, .tex, .mp4, or .webm file."
+            )
+            return
+
+        self.input_path_var.set(str(path))
             
     def log_message(self, message: str):
         self.log_text.configure(state="normal")

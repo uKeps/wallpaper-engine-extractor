@@ -16,10 +16,12 @@ When you subscribe to a wallpaper on the Wallpaper Engine Steam Workshop, the fi
 - **GUI included** — just double-click `main.py` to open the visual interface
 - **Auto-detect installed Steam wallpapers** — scans every Steam library for Wallpaper Engine Workshop items and lists them with preview thumbnails, no manual folder hunting required
 - **Video wallpaper support** — copies out `.mp4`/`.webm` video wallpapers alongside scene/`.pkg` extraction
+- **Drag & drop** — drop a `.pkg`, `.tex`, `.mp4`, or `.webm` file anywhere in the GUI window to select it
 - **CLI support** — great for scripting and batch processing
 - **Compatible with all TEX versions** — dynamically detects mipmap layouts instead of using hardcoded offsets
 - **Image-only mode** — automatically deletes shaders, scripts and JSON files, keeping only the wallpaper images
 - **Optional Pillow support** — install `pillow` to convert RAW/RLE textures to PNG and to render preview thumbnails
+- **Optional drag & drop support** — install `tkinterdnd2` to enable dropping files onto the GUI
 
 ---
 
@@ -73,7 +75,7 @@ Run without arguments to open the visual interface:
 python main.py
 ```
 
-1. Click **Browse** next to *Input File* and select your `scene.pkg`, `.tex`, or video wallpaper file — or click **Detect Installed Wallpapers (Steam)** to pick one from a list of your subscribed Workshop items with preview thumbnails
+1. Click **Browse** next to *Input File* and select your `scene.pkg`, `.tex`, or video wallpaper file — drag & drop the file onto the window instead (requires `tkinterdnd2`), or click **Detect Installed Wallpapers (Steam)** to pick one from a list of your subscribed Workshop items with preview thumbnails
 2. Set the *Output Folder* (default is auto-filled next to the input file)
 3. Keep **"Keep ONLY wallpaper images"** checked to skip shaders/scripts (scene wallpapers only)
 4. Click **Extract & Convert Assets**

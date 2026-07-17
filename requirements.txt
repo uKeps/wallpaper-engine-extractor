@@ -1,3 +1,6 @@
 # Optional: Only needed for decompressing RAW RLE-encoded textures.
 # Standard PNG/JPG scene wallpapers and videos do not require any dependencies.
 pillow>=10.0.0
+
+# Optional: Enables drag & drop of wallpaper files onto the GUI window.
+tkinterdnd2>=0.4.2
