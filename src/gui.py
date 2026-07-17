@@ -1,5 +1,6 @@
 """Modern dark-themed Tkinter GUI for Wallpaper Engine PKG & TEX Extractor."""
 
+import os
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -20,6 +21,26 @@ PRIMARY_HOVER = "#2563eb"
 ACCENT_COLOR = "#10b981"        # Emerald Green
 BORDER_COLOR = "#2e2e38"
 LOG_BG = "#0d0d0f"
+
+
+def get_default_output_dir() -> Path:
+    """Best-effort discovery of the user's Desktop folder as the default output location."""
+    try:
+        import winreg
+        with winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER,
+            r"Software\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders"
+        ) as key:
+            value, _ = winreg.QueryValueEx(key, "Desktop")
+            desktop = Path(os.path.expandvars(value))
+            if desktop.is_dir():
+                return desktop / "Wallpaper Extracted"
+    except (ImportError, OSError):
+        pass
+
+    desktop = Path.home() / "Desktop"
+    base = desktop if desktop.is_dir() else Path.home()
+    return base / "Wallpaper Extracted"
 
 
 class ModernButton(tk.Button):
@@ -63,7 +84,7 @@ class App(tk.Tk):
             
         # Variables
         self.input_path_var = tk.StringVar()
-        self.output_path_var = tk.StringVar()
+        self.output_path_var = tk.StringVar(value=str(get_default_output_dir()))
         self.convert_tex_var = tk.BooleanVar(value=True)
         self.extract_all_mips_var = tk.BooleanVar(value=False)
         self.cleanup_non_images_var = tk.BooleanVar(value=True)
@@ -277,13 +298,6 @@ class App(tk.Tk):
         )
         if file_path:
             self.input_path_var.set(file_path)
-            self._suggest_output_path(Path(file_path))
-
-    def _suggest_output_path(self, path: Path):
-        if path.suffix.lower() == ".pkg":
-            self.output_path_var.set(str(path.parent / f"{path.stem}_extracted"))
-        else:
-            self.output_path_var.set(str(path.parent))
 
     def browse_output(self):
         folder_path = filedialog.askdirectory(title="Select Output Directory")
@@ -294,9 +308,7 @@ class App(tk.Tk):
         dialog = WallpaperBrowserDialog(self)
         self.wait_window(dialog)
         if dialog.selected_asset_path:
-            asset_path = dialog.selected_asset_path
-            self.input_path_var.set(str(asset_path))
-            self._suggest_output_path(asset_path)
+            self.input_path_var.set(str(dialog.selected_asset_path))
             
     def log_message(self, message: str):
         self.log_text.configure(state="normal")
