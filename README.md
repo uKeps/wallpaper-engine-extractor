@@ -14,10 +14,11 @@ When you subscribe to a wallpaper on the Wallpaper Engine Steam Workshop, the fi
 
 - **Zero dependencies** for most wallpapers (PNG/JPG textures work out of the box)
 - **GUI included** — just double-click `main.py` to open the visual interface
+- **Auto-detect installed Steam wallpapers** — scans every Steam library for Wallpaper Engine Workshop items and lists them with preview thumbnails, no manual folder hunting required
 - **CLI support** — great for scripting and batch processing
 - **Compatible with all TEX versions** — dynamically detects mipmap layouts instead of using hardcoded offsets
 - **Image-only mode** — automatically deletes shaders, scripts and JSON files, keeping only the wallpaper images
-- **Optional Pillow support** — install `pillow` to convert RAW/RLE textures to PNG
+- **Optional Pillow support** — install `pillow` to convert RAW/RLE textures to PNG and to render preview thumbnails
 
 ---
 
@@ -71,10 +72,14 @@ Run without arguments to open the visual interface:
 python main.py
 ```
 
-1. Click **Browse** next to *Input File* and select your `scene.pkg`
+1. Click **Browse** next to *Input File* and select your `scene.pkg`, or click **Detect Installed Wallpapers (Steam)** to pick one from a list of your subscribed Workshop items with preview thumbnails
 2. Set the *Output Folder* (default is auto-filled next to the `.pkg`)
 3. Keep **"Keep ONLY wallpaper images"** checked to skip shaders/scripts
 4. Click **Extract & Convert Assets**
+
+#### Auto-detecting installed wallpapers
+
+The **Detect Installed Wallpapers (Steam)** button scans every Steam library (read from the registry and `libraryfolders.vdf`) for `steamapps/workshop/content/431960`, the Wallpaper Engine Workshop app ID. Each entry shows its preview thumbnail (requires Pillow), title, Workshop ID and type; clicking **Select** on a `scene` wallpaper fills in the input/output fields automatically. Video and web wallpapers are listed too but can't be selected since they have no `scene.pkg` to extract.
 
 ### Command Line (CLI)
 
@@ -96,6 +101,9 @@ python main.py "path/to/scene.pkg" --all-mipmaps
 
 # Force open the GUI
 python main.py --gui
+
+# List installed Steam Workshop wallpapers (title, ID, type, scene.pkg path)
+python main.py --list-wallpapers
 ```
 
 ### Full CLI Reference
@@ -111,6 +119,7 @@ options:
   --all-mipmaps         Extract all mipmap levels, not just the highest resolution
   --no-cleanup          Keep all extracted files (shaders, JSON, scripts, etc.)
   --gui                 Force launch the GUI even when arguments are provided
+  --list-wallpapers     List installed Wallpaper Engine Steam Workshop wallpapers and exit
 ```
 
 ---
@@ -125,9 +134,11 @@ wallpaper-pkg-extractor/
 ├── README.md
 └── src/
     ├── __init__.py
-    ├── extractor.py      # .pkg archive parser and file extractor
-    ├── tex_parser.py     # .tex container decoder and image converter
-    └── gui.py            # Tkinter dark-themed GUI
+    ├── extractor.py          # .pkg archive parser and file extractor
+    ├── tex_parser.py         # .tex container decoder and image converter
+    ├── steam_finder.py       # Steam library/Workshop scanner for installed wallpapers
+    ├── wallpaper_browser.py  # GUI dialog listing detected wallpapers with thumbnails
+    └── gui.py                # Tkinter dark-themed GUI
 ```
 
 ---

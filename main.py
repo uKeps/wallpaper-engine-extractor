@@ -8,6 +8,10 @@ from pathlib import Path
 # Add project root to path to ensure correct relative imports
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+# Avoid crashes when workshop titles contain characters outside the console's codepage
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
+
 from src.extractor import extract_package
 from src.tex_parser import extract_tex_file
 
@@ -50,6 +54,22 @@ def run_cli(args):
         sys.exit(1)
 
 
+def list_installed_wallpapers():
+    """Print installed Wallpaper Engine Steam Workshop wallpapers and their scene.pkg paths."""
+    from src.steam_finder import find_installed_wallpapers
+
+    wallpapers = find_installed_wallpapers()
+    if not wallpapers:
+        print("No Wallpaper Engine workshop items found.")
+        return
+
+    print(f"Found {len(wallpapers)} wallpaper(s):\n")
+    for wp in wallpapers:
+        location = str(wp.pkg_path) if wp.pkg_path else "No scene.pkg found"
+        print(f"[{wp.workshop_id}] {wp.title} ({wp.wp_type})")
+        print(f"    {location}")
+
+
 def main():
     # If no arguments are provided, default to launching the GUI
     if len(sys.argv) == 1:
@@ -90,9 +110,18 @@ def main():
         action="store_true",
         help="Force launch the Graphical User Interface."
     )
-    
+    parser.add_argument(
+        "--list-wallpapers",
+        action="store_true",
+        help="List installed Wallpaper Engine Steam Workshop wallpapers and exit."
+    )
+
     args = parser.parse_args()
-    
+
+    if args.list_wallpapers:
+        list_installed_wallpapers()
+        return
+
     if args.gui or not args.input:
         from src.gui import main as launch_gui
         launch_gui()

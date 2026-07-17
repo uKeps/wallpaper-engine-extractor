@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.extractor import extract_package
 from src.tex_parser import extract_tex_file, HAS_PILLOW
+from src.wallpaper_browser import WallpaperBrowserDialog
 
 # Colors
 BG_COLOR = "#121214"
@@ -162,7 +163,17 @@ class App(tk.Tk):
             command=self.browse_output
         )
         browse_output_btn.grid(row=1, column=2, pady=5)
-        
+
+        # Auto-detect installed Steam Workshop wallpapers
+        detect_btn = ModernButton(
+            input_frame,
+            text="Detect Installed Wallpapers (Steam)",
+            bg=ACCENT_COLOR,
+            hover_bg="#0d9668",
+            command=self.open_wallpaper_browser
+        )
+        detect_btn.grid(row=2, column=0, columnspan=3, sticky="w", pady=(10, 0))
+
         # Options Frame
         options_frame = tk.Frame(main_frame, bg=BG_COLOR)
         options_frame.pack(fill="x", pady=(0, 15))
@@ -275,6 +286,14 @@ class App(tk.Tk):
         folder_path = filedialog.askdirectory(title="Select Output Directory")
         if folder_path:
             self.output_path_var.set(folder_path)
+
+    def open_wallpaper_browser(self):
+        dialog = WallpaperBrowserDialog(self)
+        self.wait_window(dialog)
+        if dialog.selected_pkg_path:
+            pkg_path = dialog.selected_pkg_path
+            self.input_path_var.set(str(pkg_path))
+            self.output_path_var.set(str(pkg_path.parent / f"{pkg_path.stem}_extracted"))
             
     def log_message(self, message: str):
         self.log_text.configure(state="normal")
