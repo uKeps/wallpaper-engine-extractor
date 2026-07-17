@@ -14,6 +14,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 from src.extractor import extract_package
 from src.tex_parser import extract_tex_file
+from src.video_extractor import extract_video_file, SUPPORTED_VIDEO_EXTENSIONS
 
 
 def run_cli(args):
@@ -44,8 +45,12 @@ def run_cli(args):
             print(f"Successfully extracted {len(imgs)} image(s) from .tex container.")
             for img in imgs:
                 print(f"Created: {img.name}")
+        elif input_path.suffix.lower() in SUPPORTED_VIDEO_EXTENSIONS:
+            print(f"Processing video wallpaper: {input_path.name}...")
+            output_video = extract_video_file(video_path=input_path, output_dir=output_dir)
+            print(f"Created: {output_video.name}")
         else:
-            print("Error: Unsupported file format. Must be .pkg or .tex")
+            print("Error: Unsupported file format. Must be .pkg, .tex, .mp4, or .webm")
             sys.exit(1)
             
         print("Done!")
@@ -55,7 +60,7 @@ def run_cli(args):
 
 
 def list_installed_wallpapers():
-    """Print installed Wallpaper Engine Steam Workshop wallpapers and their scene.pkg paths."""
+    """Print installed Wallpaper Engine Steam Workshop wallpapers and their extractable asset paths."""
     from src.steam_finder import find_installed_wallpapers
 
     wallpapers = find_installed_wallpapers()
@@ -65,7 +70,7 @@ def list_installed_wallpapers():
 
     print(f"Found {len(wallpapers)} wallpaper(s):\n")
     for wp in wallpapers:
-        location = str(wp.pkg_path) if wp.pkg_path else "No scene.pkg found"
+        location = str(wp.asset_path) if wp.asset_path else "No extractable asset found"
         print(f"[{wp.workshop_id}] {wp.title} ({wp.wp_type})")
         print(f"    {location}")
 
@@ -84,7 +89,7 @@ def main():
     parser.add_argument(
         "input",
         nargs="?",
-        help="Path to the scene.pkg or individual .tex file."
+        help="Path to the scene.pkg, an individual .tex file, or a video wallpaper (.mp4/.webm)."
     )
     parser.add_argument(
         "-o", "--output",

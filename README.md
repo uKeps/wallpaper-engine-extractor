@@ -8,13 +8,14 @@
 
 ---
 
-When you subscribe to a wallpaper on the Wallpaper Engine Steam Workshop, the files are downloaded as a proprietary `scene.pkg` archive. This tool unpacks that archive and converts the internal `.tex` texture files into standard image formats (PNG / JPG / BMP) that any program can open.
+When you subscribe to a wallpaper on the Wallpaper Engine Steam Workshop, the files are downloaded as a proprietary `scene.pkg` archive (or, for video wallpapers, a plain `.mp4`/`.webm` file). This tool unpacks `scene.pkg` archives and converts the internal `.tex` texture files into standard image formats (PNG / JPG / BMP), and copies out video wallpapers as-is — all without extra software.
 
 ## ✨ Features
 
 - **Zero dependencies** for most wallpapers (PNG/JPG textures work out of the box)
 - **GUI included** — just double-click `main.py` to open the visual interface
 - **Auto-detect installed Steam wallpapers** — scans every Steam library for Wallpaper Engine Workshop items and lists them with preview thumbnails, no manual folder hunting required
+- **Video wallpaper support** — copies out `.mp4`/`.webm` video wallpapers alongside scene/`.pkg` extraction
 - **CLI support** — great for scripting and batch processing
 - **Compatible with all TEX versions** — dynamically detects mipmap layouts instead of using hardcoded offsets
 - **Image-only mode** — automatically deletes shaders, scripts and JSON files, keeping only the wallpaper images
@@ -72,14 +73,14 @@ Run without arguments to open the visual interface:
 python main.py
 ```
 
-1. Click **Browse** next to *Input File* and select your `scene.pkg`, or click **Detect Installed Wallpapers (Steam)** to pick one from a list of your subscribed Workshop items with preview thumbnails
-2. Set the *Output Folder* (default is auto-filled next to the `.pkg`)
-3. Keep **"Keep ONLY wallpaper images"** checked to skip shaders/scripts
+1. Click **Browse** next to *Input File* and select your `scene.pkg`, `.tex`, or video wallpaper file — or click **Detect Installed Wallpapers (Steam)** to pick one from a list of your subscribed Workshop items with preview thumbnails
+2. Set the *Output Folder* (default is auto-filled next to the input file)
+3. Keep **"Keep ONLY wallpaper images"** checked to skip shaders/scripts (scene wallpapers only)
 4. Click **Extract & Convert Assets**
 
 #### Auto-detecting installed wallpapers
 
-The **Detect Installed Wallpapers (Steam)** button scans every Steam library (read from the registry and `libraryfolders.vdf`) for `steamapps/workshop/content/431960`, the Wallpaper Engine Workshop app ID. Each entry shows its preview thumbnail (requires Pillow), title, Workshop ID and type; clicking **Select** on a `scene` wallpaper fills in the input/output fields automatically. Video and web wallpapers are listed too but can't be selected since they have no `scene.pkg` to extract.
+The **Detect Installed Wallpapers (Steam)** button scans every Steam library (read from the registry and `libraryfolders.vdf`) for `steamapps/workshop/content/431960`, the Wallpaper Engine Workshop app ID. Each entry shows its preview thumbnail (requires Pillow), title, Workshop ID and type; clicking **Select** fills in the input/output fields automatically for both `scene` wallpapers (`scene.pkg`) and `video` wallpapers (`.mp4`/`.webm`). Web wallpapers are listed too but can't be selected since they have no extractable asset.
 
 ### Command Line (CLI)
 
@@ -99,10 +100,13 @@ python main.py "path/to/scene.pkg" --no-cleanup
 # Also extract smaller mipmap sizes (not just full resolution)
 python main.py "path/to/scene.pkg" --all-mipmaps
 
+# Copy out a video wallpaper (.mp4/.webm)
+python main.py "path/to/video_wallpaper.mp4" -o "C:/Users/YourName/Desktop/output"
+
 # Force open the GUI
 python main.py --gui
 
-# List installed Steam Workshop wallpapers (title, ID, type, scene.pkg path)
+# List installed Steam Workshop wallpapers (title, ID, type, extractable asset path)
 python main.py --list-wallpapers
 ```
 
@@ -110,7 +114,7 @@ python main.py --list-wallpapers
 
 ```
 positional arguments:
-  input                 Path to scene.pkg or a standalone .tex file
+  input                 Path to scene.pkg, a standalone .tex file, or a video wallpaper (.mp4/.webm)
 
 options:
   -h, --help            Show this help message and exit
@@ -138,6 +142,7 @@ wallpaper-pkg-extractor/
     ├── tex_parser.py         # .tex container decoder and image converter
     ├── steam_finder.py       # Steam library/Workshop scanner for installed wallpapers
     ├── wallpaper_browser.py  # GUI dialog listing detected wallpapers with thumbnails
+    ├── video_extractor.py    # Copies out .mp4/.webm video wallpapers
     └── gui.py                # Tkinter dark-themed GUI
 ```
 
@@ -163,6 +168,10 @@ Wallpaper Engine `.pkg` files are simple binary archives:
 Each mipmap stores width, height, data size, then the actual image bytes. The image can be a raw PNG, raw JPG, or RLE-compressed BGRA data.
 
 This tool uses a **dynamic scanning strategy** — it locates the first mipmap by searching for the `(width, height)` byte pattern after the `TEXB` marker, making it work across all known Wallpaper Engine versions.
+
+### Video Wallpapers
+
+Video wallpapers don't use a `.pkg` container at all — the Workshop folder holds the finished `.mp4`/`.webm` file directly. There's nothing to parse, so "extracting" one just copies it into the chosen output folder unchanged.
 
 ---
 

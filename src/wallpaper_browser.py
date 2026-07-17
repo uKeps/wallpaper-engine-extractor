@@ -32,7 +32,7 @@ class WallpaperBrowserDialog(tk.Toplevel):
         self.transient(master)
         self.grab_set()
 
-        self.selected_pkg_path = None
+        self.selected_asset_path = None
         self._thumbnail_refs = []  # keep PhotoImage references alive
 
         self._build_widgets()
@@ -93,9 +93,9 @@ class WallpaperBrowserDialog(tk.Toplevel):
             )
             return
 
-        extractable_count = sum(1 for w in wallpapers if w.pkg_path is not None)
+        extractable_count = sum(1 for w in wallpapers if w.asset_path is not None)
         self.status_label.configure(
-            text=f"Found {len(wallpapers)} wallpaper(s), {extractable_count} with an extractable scene.pkg."
+            text=f"Found {len(wallpapers)} wallpaper(s), {extractable_count} with an extractable asset."
         )
         if not HAS_PILLOW:
             tk.Label(
@@ -108,7 +108,7 @@ class WallpaperBrowserDialog(tk.Toplevel):
             self._add_row(wp)
 
     def _add_row(self, wp):
-        extractable = wp.pkg_path is not None
+        extractable = wp.asset_path is not None
 
         row = tk.Frame(self.items_frame, bg=SURFACE_COLOR, padx=10, pady=8)
         row.pack(fill="x", pady=4)
@@ -127,7 +127,7 @@ class WallpaperBrowserDialog(tk.Toplevel):
 
         subtitle = f"ID: {wp.workshop_id}  |  Type: {wp.wp_type}"
         if not extractable:
-            subtitle += "  |  No scene.pkg found"
+            subtitle += "  |  No extractable asset found"
         tk.Label(info_frame, text=subtitle, bg=SURFACE_COLOR, fg=TEXT_MUTED, font=("Arial", 8)).pack(anchor="w")
 
         tk.Button(
@@ -150,5 +150,5 @@ class WallpaperBrowserDialog(tk.Toplevel):
         label.configure(text="No\nPreview")
 
     def _select(self, wp):
-        self.selected_pkg_path = wp.pkg_path
+        self.selected_asset_path = wp.asset_path
         self.destroy()

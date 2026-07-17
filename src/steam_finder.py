@@ -16,8 +16,14 @@ class WallpaperInfo:
     title: str
     folder: Path
     pkg_path: Optional[Path]
+    video_path: Optional[Path]
     preview_path: Optional[Path]
     wp_type: str
+
+    @property
+    def asset_path(self) -> Optional[Path]:
+        """The extractable file for this wallpaper, regardless of its type."""
+        return self.pkg_path or self.video_path
 
 
 def _registry_steam_paths() -> list[Path]:
@@ -125,6 +131,19 @@ def _find_pkg(folder: Path, project: dict) -> Optional[Path]:
     return matches[0] if matches else None
 
 
+def _find_video(folder: Path, project: dict) -> Optional[Path]:
+    file_name = project.get("file")
+    if file_name and file_name.lower().endswith((".mp4", ".webm")):
+        candidate = folder / file_name
+        if candidate.is_file():
+            return candidate
+    for ext in ("mp4", "webm"):
+        matches = list(folder.glob(f"*.{ext}"))
+        if matches:
+            return matches[0]
+    return None
+
+
 def find_installed_wallpapers() -> list[WallpaperInfo]:
     """Scan every detected Steam workshop library for Wallpaper Engine wallpapers."""
     wallpapers = []
@@ -146,6 +165,7 @@ def find_installed_wallpapers() -> list[WallpaperInfo]:
                 title=project.get("title") or folder.name,
                 folder=folder,
                 pkg_path=_find_pkg(folder, project),
+                video_path=_find_video(folder, project),
                 preview_path=_find_preview(folder, project),
                 wp_type=(project.get("type") or "unknown").lower(),
             ))

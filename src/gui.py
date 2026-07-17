@@ -7,6 +7,7 @@ from pathlib import Path
 
 from src.extractor import extract_package
 from src.tex_parser import extract_tex_file, HAS_PILLOW
+from src.video_extractor import extract_video_file, SUPPORTED_VIDEO_EXTENSIONS
 from src.wallpaper_browser import WallpaperBrowserDialog
 
 # Colors
@@ -265,23 +266,25 @@ class App(tk.Tk):
             
     def browse_input(self):
         file_path = filedialog.askopenfilename(
-            title="Select scene.pkg or .tex file",
+            title="Select scene.pkg, .tex, or video wallpaper file",
             filetypes=[
-                ("Wallpaper Engine Files", "*.pkg;*.tex"),
+                ("Wallpaper Engine Files", "*.pkg;*.tex;*.mp4;*.webm"),
                 ("Wallpaper Package (scene.pkg)", "*.pkg"),
                 ("Wallpaper Texture (.tex)", "*.tex"),
+                ("Video Wallpaper (.mp4/.webm)", "*.mp4;*.webm"),
                 ("All files", "*.*")
             ]
         )
         if file_path:
             self.input_path_var.set(file_path)
-            # Auto-suggest output folder
-            path = Path(file_path)
-            if path.suffix.lower() == ".pkg":
-                self.output_path_var.set(str(path.parent / f"{path.stem}_extracted"))
-            else:
-                self.output_path_var.set(str(path.parent))
-                
+            self._suggest_output_path(Path(file_path))
+
+    def _suggest_output_path(self, path: Path):
+        if path.suffix.lower() == ".pkg":
+            self.output_path_var.set(str(path.parent / f"{path.stem}_extracted"))
+        else:
+            self.output_path_var.set(str(path.parent))
+
     def browse_output(self):
         folder_path = filedialog.askdirectory(title="Select Output Directory")
         if folder_path:
@@ -290,10 +293,10 @@ class App(tk.Tk):
     def open_wallpaper_browser(self):
         dialog = WallpaperBrowserDialog(self)
         self.wait_window(dialog)
-        if dialog.selected_pkg_path:
-            pkg_path = dialog.selected_pkg_path
-            self.input_path_var.set(str(pkg_path))
-            self.output_path_var.set(str(pkg_path.parent / f"{pkg_path.stem}_extracted"))
+        if dialog.selected_asset_path:
+            asset_path = dialog.selected_asset_path
+            self.input_path_var.set(str(asset_path))
+            self._suggest_output_path(asset_path)
             
     def log_message(self, message: str):
         self.log_text.configure(state="normal")
@@ -363,6 +366,14 @@ class App(tk.Tk):
                 self.log_message(f"Extracted {len(imgs)} image(s) from .tex container.")
                 for img in imgs:
                     self.log_message(f"Created: {img.name}")
+            elif input_path.suffix.lower() in SUPPORTED_VIDEO_EXTENSIONS:
+                self.log_message(f"Processing video wallpaper {input_path.name}...")
+                output_video = extract_video_file(
+                    video_path=input_path,
+                    output_dir=output_path,
+                    log_callback=self.log_message
+                )
+                self.log_message(f"Created: {output_video.name}")
             else:
                 self.log_message("Error: Unsupported file format.")
                 
