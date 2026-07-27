@@ -1,8 +1,32 @@
+<img src="assets/icon.png" width="96" align="right" alt="">
+
 # Wallpaper Engine PKG Extractor
 
-Extracts the image (or video) from wallpapers downloaded by Wallpaper Engine, no extra software needed beyond Python.
+Extracts the image (or video) from wallpapers downloaded by Wallpaper Engine, no extra software needed.
 
 When you subscribe to a wallpaper on the Steam Workshop, the downloaded files come in a proprietary format (`scene.pkg`, containing `.tex` textures inside) or, for video wallpapers, as a plain `.mp4`/`.webm` file. This script reads the `scene.pkg`, decodes the `.tex` textures, and saves everything as regular PNG/JPG/BMP. Videos are just copied out as-is.
+
+## Download
+
+Grab **`WallpaperExtractor.exe`** from the [Releases page](https://github.com/uKeps/wallpaper-pkg-extractor/releases/latest). It's a single self-contained file — no Python, no install, just double-click it.
+
+The `.exe` ships the GUI only. For the command line, use the source version.
+
+### Windows will complain, and that's expected
+
+The executable is **not code-signed**. A code signing certificate is a paid, yearly subscription, which is hard to justify for a free tool — so Windows treats the file as coming from an unknown publisher. Two different things can happen:
+
+**SmartScreen warning** — a blue "Windows protected your PC" box. This is just a warning: click **More info → Run anyway** and it runs. Most people will only ever see this one.
+
+**Smart App Control block** — "An Application Control policy has blocked this file". This one is a hard block, with no "run anyway" button. Smart App Control is enabled by default on clean installs of Windows 11 22H2 and newer, and for unsigned files its verdict comes from Microsoft's cloud reputation service, so it can block one build and allow the next.
+
+If you hit the hard block, **use the source version instead** — every release has a `Source code (zip)` asset attached, and the [Installation](#installation) section below takes two minutes. Please **don't turn Smart App Control off** to work around this: it can only be re-enabled by reinstalling Windows, which is a terrible trade for one small utility.
+
+Each release also ships a `checksums.txt` with the SHA256 of the `.exe`, so you can confirm the file you downloaded is byte-for-byte the one built by GitHub Actions:
+
+```powershell
+Get-FileHash WallpaperExtractor.exe -Algorithm SHA256
+```
 
 ## Features
 
@@ -18,7 +42,9 @@ When you subscribe to a wallpaper on the Steam Workshop, the downloaded files co
 
 ## Installation
 
-Requires [Python 3.6+](https://www.python.org/downloads/) (check "Add Python to PATH" during install).
+Only needed if you want the CLI or prefer running from source — otherwise just [download the .exe](#download).
+
+Requires [Python 3.10+](https://www.python.org/downloads/) (check "Add Python to PATH" during install).
 
 ```bash
 git clone https://github.com/uKeps/wallpaper-pkg-extractor.git
@@ -26,7 +52,7 @@ cd wallpaper-pkg-extractor
 pip install -r requirements.txt
 ```
 
-The `pip install` step is optional — without it, PNG and JPG still extract fine, only the rarer RAW/RLE textures come out as BMP instead of PNG.
+The `pip install` step is optional — without it, PNG and JPG still extract fine, only the rarer RAW/RLE textures come out as BMP instead of PNG, and drag & drop is disabled.
 
 ## Where the files live
 
@@ -105,12 +131,27 @@ options:
   --list-wallpapers     List installed Wallpaper Engine Steam Workshop wallpapers and exit
 ```
 
+## Building the executable
+
+```powershell
+.\build.ps1
+```
+
+Installs PyInstaller if needed and writes `dist\WallpaperExtractor.exe` (~17 MB, single file, no console window). Everything is bundled — Python, Tk, Pillow and the `tkdnd` Tcl package that drag & drop depends on.
+
+Pushing a `v*` tag builds it on GitHub Actions and attaches the `.exe` plus a `checksums.txt` to the release automatically (`.github/workflows/build.yml`); the same workflow can be run manually from the Actions tab.
+
+Builds are unsigned — see [the warning above](#windows-will-complain-and-thats-expected) for what that means for users. If signing ever becomes worth the trouble, [SignPath Foundation](https://signpath.org/) grants free code signing certificates to open source projects that build in public CI, which is the only route that actually clears SmartScreen and Smart App Control without a yearly bill.
+
 ## Project structure
 
 ```
 wallpaper-pkg-extractor/
-├── main.py               # entry point — dispatches to GUI or CLI
-├── requirements.txt      # optional dependencies (Pillow, tkinterdnd2)
+├── main.py                    # entry point — dispatches to GUI or CLI
+├── requirements.txt           # optional dependencies (Pillow, tkinterdnd2)
+├── build.ps1                  # builds the .exe
+├── WallpaperExtractor.spec    # PyInstaller config
+├── assets/                    # app icon and Windows version resource
 ├── LICENSE
 ├── README.md
 └── src/
