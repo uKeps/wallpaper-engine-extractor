@@ -1,6 +1,7 @@
 """Modern dark-themed Tkinter GUI for Wallpaper Engine PKG & TEX Extractor."""
 
 import os
+import sys
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -30,6 +31,12 @@ PRIMARY_HOVER = "#2563eb"
 ACCENT_COLOR = "#10b981"        # Emerald Green
 BORDER_COLOR = "#2e2e38"
 LOG_BG = "#0d0d0f"
+
+
+def resource_path(relative: str) -> Path:
+    """Locate a bundled asset, both from a source checkout and from a PyInstaller build."""
+    base = getattr(sys, "_MEIPASS", None) or Path(__file__).resolve().parent.parent
+    return Path(base) / relative
 
 
 def get_default_output_dir() -> Path:
@@ -85,9 +92,10 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         self.configure(bg=BG_COLOR)
         self.resizable(True, True)
 
-        # Set Window Icon if possible (fallback gracefully)
+        # Set Window Icon if possible (fallback gracefully).
+        # `default=` also applies it to child Toplevels such as the wallpaper browser.
         try:
-            self.iconbitmap("")
+            self.iconbitmap(default=str(resource_path("assets/icon.ico")))
         except Exception:
             pass
 
