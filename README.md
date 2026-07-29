@@ -1,4 +1,4 @@
-<img src="assets/icon.png" width="96" align="right" alt="">
+<img src="assets/icon.png" width="50" align="right" alt="">
 
 # Wallpaper Engine PKG Extractor
 
