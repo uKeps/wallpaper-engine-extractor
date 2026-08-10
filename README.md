@@ -2,27 +2,25 @@
 
 # Wallpaper Engine PKG Extractor
 
-Extracts the image (or video) from wallpapers downloaded by Wallpaper Engine, no extra software needed.
+Extracts the image (or video) from wallpapers downloaded by Wallpaper Engine.
 
-When you subscribe to a wallpaper on the Steam Workshop, the downloaded files come in a proprietary format (`scene.pkg`, containing `.tex` textures inside) or, for video wallpapers, as a plain `.mp4`/`.webm` file. This script reads the `scene.pkg`, decodes the `.tex` textures, and saves everything as regular PNG/JPG/BMP. Videos are just copied out as-is.
+Downloaded workshop wallpapers use a proprietary format: `scene.pkg` with `.tex` textures inside, or a plain `.mp4`/`.webm` for video wallpapers. This tool reads the `.pkg`, decodes the `.tex` textures, and saves everything as PNG/JPG/BMP. Videos are just copied out as-is.
 
 ## Download
 
-Grab **`WallpaperExtractor.exe`** from the [Releases page](https://github.com/uKeps/wallpaper-pkg-extractor/releases/latest). It's a single self-contained file — no Python, no install, just double-click it.
+Grab `WallpaperExtractor.exe` from the [Releases page](https://github.com/uKeps/wallpaper-pkg-extractor/releases/latest). Single file, no install, no Python needed.
 
-The `.exe` ships the GUI only. For the command line, use the source version.
+The `.exe` only has the GUI. For the CLI, run from source.
 
-### Windows will complain, and that's expected
+### About the Windows warnings
 
-The executable is **not code-signed**. A code signing certificate is a paid, yearly subscription, which is hard to justify for a free tool — so Windows treats the file as coming from an unknown publisher. Two different things can happen:
+The exe isn't code signed (a signing certificate costs money every year, hard to justify for a free tool), so Windows treats it as coming from an unknown publisher.
 
-**SmartScreen warning** — a blue "Windows protected your PC" box. This is just a warning: click **More info → Run anyway** and it runs. Most people will only ever see this one.
+Usually you'll just see a blue "Windows protected your PC" SmartScreen warning. Click **More info → Run anyway** and it works.
 
-**Smart App Control block** — "An Application Control policy has blocked this file". This one is a hard block, with no "run anyway" button. Smart App Control is enabled by default on clean installs of Windows 11 22H2 and newer, and for unsigned files its verdict comes from Microsoft's cloud reputation service, so it can block one build and allow the next.
+On some Windows 11 22H2+ installs, Smart App Control is on by default and can hard block the exe with no "run anyway" option, based on Microsoft's cloud reputation for that specific file. If that happens, use the source version instead (see [Installation](#installation), it's quick). Don't disable Smart App Control just for this, since turning it back on means reinstalling Windows.
 
-If you hit the hard block, **use the source version instead** — every release has a `Source code (zip)` asset attached, and the [Installation](#installation) section below takes two minutes. Please **don't turn Smart App Control off** to work around this: it can only be re-enabled by reinstalling Windows, which is a terrible trade for one small utility.
-
-Each release also ships a `checksums.txt` with the SHA256 of the `.exe`, so you can confirm the file you downloaded is byte-for-byte the one built by GitHub Actions:
+Each release ships a `checksums.txt` so you can verify the exe:
 
 ```powershell
 Get-FileHash WallpaperExtractor.exe -Algorithm SHA256
@@ -30,19 +28,18 @@ Get-FileHash WallpaperExtractor.exe -Algorithm SHA256
 
 ## Features
 
-- No dependencies needed for most cases (PNG/JPG textures work out of the box)
-- GUI (run `main.py` with no arguments) and also works from the command line
-- Auto-detects installed wallpapers via Steam, with preview thumbnails, no manual folder hunting
-- Drag and drop files onto the GUI window
-- Extracts videos (`.mp4`/`.webm`) by copying them out
-- Works with any version of the `.tex` format — no hardcoded offsets, layout is detected dynamically
-- "Images only" mode: deletes shaders, scripts and JSON, keeping just the wallpaper
-- Pillow (optional) to convert RAW/RLE textures to PNG and generate preview thumbnails
-- tkinterdnd2 (optional) to enable drag & drop in the GUI
+- Works out of the box for PNG/JPG textures, no dependencies
+- GUI (`main.py` with no args) or CLI
+- Auto-detects installed wallpapers via Steam, with thumbnails
+- Drag and drop onto the GUI window
+- Extracts video wallpapers (`.mp4`/`.webm`)
+- Handles any `.tex` format version, no hardcoded offsets
+- "Images only" mode strips shaders/scripts/JSON, keeps just the wallpaper
+- Optional: Pillow for RAW/RLE → PNG conversion and thumbnails, tkinterdnd2 for drag & drop
 
 ## Installation
 
-Only needed if you want the CLI or prefer running from source — otherwise just [download the .exe](#download).
+Only needed for the CLI or to run from source, otherwise just [download the exe](#download).
 
 Requires [Python 3.10+](https://www.python.org/downloads/) (check "Add Python to PATH" during install).
 
@@ -52,25 +49,21 @@ cd wallpaper-pkg-extractor
 pip install -r requirements.txt
 ```
 
-The `pip install` step is optional — without it, PNG and JPG still extract fine, only the rarer RAW/RLE textures come out as BMP instead of PNG, and drag & drop is disabled.
+`pip install` is optional. Without it, PNG/JPG still extract fine, RAW/RLE textures fall back to BMP, and drag & drop is disabled.
 
 ## Where the files live
-
-Steam stores downloaded wallpapers here:
 
 ```
 C:\Program Files (x86)\Steam\steamapps\workshop\content\431960\<wallpaper_ID>\
 ```
 
-Inside each folder:
-
 | File | What it is |
 |---|---|
-| `scene.pkg` | The package with the wallpaper's assets |
+| `scene.pkg` | Package with the wallpaper's assets |
 | `preview.jpg` | Preview thumbnail |
 | `project.json` | Wallpaper metadata |
 
-In practice you don't need to hunt for this manually — the GUI's auto-detect button (or `--list-wallpapers` in the CLI) already lists everything for you.
+The GUI's auto-detect button (or `--list-wallpapers` in the CLI) lists all of this for you, no need to dig through folders manually.
 
 ## Usage
 
@@ -80,17 +73,17 @@ In practice you don't need to hunt for this manually — the GUI's auto-detect b
 python main.py
 ```
 
-1. Click **Browse** and pick the `scene.pkg`, `.tex`, or video file — or drag the file onto the window, or click **Detect Installed Wallpapers (Steam)** to pick one from a list with previews
-2. Check the output folder (already filled in next to the input file)
-3. Leave **"Keep ONLY wallpaper images"** checked if you just want the image, without the extra files (only affects scene-type wallpapers)
+1. Browse or drag in a `scene.pkg`, `.tex`, or video file, or click **Detect Installed Wallpapers (Steam)**
+2. Check the output folder (auto-filled next to the input)
+3. Leave "Keep ONLY wallpaper images" checked if you just want the image (scene-type wallpapers only)
 4. Click **Extract & Convert Assets**
 
-Web-type wallpapers show up in the detection list but can't be extracted — they don't have a fixed asset to pull out.
+Web-type wallpapers show up in the detection list but can't be extracted, they don't have a fixed asset to pull.
 
 ### CLI
 
 ```bash
-# basic extraction — outputs to scene_extracted/ next to the .pkg
+# basic extraction, outputs to scene_extracted/ next to the .pkg
 python main.py "path/to/scene.pkg"
 
 # custom output folder
@@ -115,8 +108,6 @@ python main.py --gui
 python main.py --list-wallpapers
 ```
 
-Full reference:
-
 ```
 positional arguments:
   input                 Path to scene.pkg, a standalone .tex file, or a video wallpaper (.mp4/.webm)
@@ -137,17 +128,17 @@ options:
 .\build.ps1
 ```
 
-Installs PyInstaller if needed and writes `dist\WallpaperExtractor.exe` (~17 MB, single file, no console window). Everything is bundled — Python, Tk, Pillow and the `tkdnd` Tcl package that drag & drop depends on.
+Installs PyInstaller if needed, writes `dist\WallpaperExtractor.exe` (~17 MB, single file, no console). Python, Tk, Pillow and the `tkdnd` Tcl package all get bundled in.
 
-Pushing a `v*` tag builds it on GitHub Actions and attaches the `.exe` plus a `checksums.txt` to the release automatically (`.github/workflows/build.yml`); the same workflow can be run manually from the Actions tab.
+Pushing a `v*` tag builds it on GitHub Actions and attaches the exe plus `checksums.txt` to the release (`.github/workflows/build.yml`). Can also be run manually from the Actions tab.
 
-Builds are unsigned — see [the warning above](#windows-will-complain-and-thats-expected) for what that means for users. If signing ever becomes worth the trouble, [SignPath Foundation](https://signpath.org/) grants free code signing certificates to open source projects that build in public CI, which is the only route that actually clears SmartScreen and Smart App Control without a yearly bill.
+Builds are unsigned, see the warning section above. [SignPath Foundation](https://signpath.org/) gives free signing certs to open source projects that build in public CI, that's the only route that actually clears SmartScreen and Smart App Control without paying yearly.
 
 ## Project structure
 
 ```
 wallpaper-pkg-extractor/
-├── main.py                    # entry point — dispatches to GUI or CLI
+├── main.py                    # entry point, dispatches to GUI or CLI
 ├── requirements.txt           # optional dependencies (Pillow, tkinterdnd2)
 ├── build.ps1                  # builds the .exe
 ├── WallpaperExtractor.spec    # PyInstaller config
@@ -163,17 +154,17 @@ wallpaper-pkg-extractor/
     └── gui.py                # Tkinter GUI
 ```
 
-## How it works under the hood
+## How it works
 
-**`.pkg` format**: a simple binary archive — a string with the root path (something like `PKGV0024`, identifies the Wallpaper Engine version), a uint32 with the file count, then the entries (name, offset, size), and finally all file data concatenated together.
+**`.pkg`**: binary archive. Root path string (`PKGV0024`-style, identifies the WE version), a uint32 file count, then entries (name, offset, size), then all file data concatenated.
 
-**`.tex` format**: a texture container with three sections — `TEXV` (version), `TEXI` (width/height), and `TEXB` (mipmap binary data). Each mipmap stores width, height, size, and the image bytes, which can be raw PNG, raw JPG, or RLE-compressed BGRA. Instead of using hardcoded offsets (which break between versions), the script scans for the `(width, height)` byte pattern right after the `TEXB` marker to find the first mipmap — that's why it works across any version of the format.
+**`.tex`**: three sections, `TEXV` (version), `TEXI` (width/height), `TEXB` (mipmap data). Each mipmap has width, height, size and image bytes, either raw PNG, raw JPG, or RLE-compressed BGRA. Instead of hardcoded offsets, which break between format versions, the script scans for the `(width, height)` byte pattern right after `TEXB` to find the first mipmap. That's what makes it version-agnostic.
 
-**Videos**: don't use a `.pkg` at all, the `.mp4`/`.webm` file already sits loose in the Workshop folder. "Extracting" here is just copying it to the chosen destination.
+**Video**: no `.pkg` involved, the `.mp4`/`.webm` already sits loose in the Workshop folder. "Extracting" is just a copy.
 
 ## Disclaimer
 
-This is for personal use — like recovering the image of a wallpaper you already own. Respect the creators' copyright and don't redistribute extracted assets without permission.
+For personal use, like recovering the image of a wallpaper you already own. Respect creators' copyright, don't redistribute extracted assets without permission.
 
 ## License
 
