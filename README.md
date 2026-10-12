@@ -8,9 +8,9 @@ Get the actual image or video out of any Wallpaper Engine wallpaper. Point it at
 
 <p align="center"><img src="assets/screenshot.png" width="460" alt="Wallpaper Engine Extractor window after extracting a wallpaper"></p>
 
-## Why this one
+## Features
 
-Workshop wallpapers come packed as `scene.pkg` archives with textures in Wallpaper Engine's own `.tex` format, so you can't just open them. [RePKG](https://github.com/notscuffed/repkg) is the well-known tool for this, but it's command line only. This one adds:
+Workshop wallpapers come packed as `scene.pkg` archives with textures in Wallpaper Engine's own `.tex` format, so you can't just open them. This tool unpacks them for you, with:
 
 - **A GUI**, with drag and drop
 - **Auto-detection** of every installed wallpaper via Steam, with thumbnails, so there's no digging through numbered folders
