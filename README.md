@@ -4,7 +4,7 @@
 
 Get the actual image or video out of any Wallpaper Engine wallpaper. Point it at your Steam Workshop folder, pick a wallpaper, click extract. You get a normal PNG/JPG/MP4.
 
-**[⬇ Download WallpaperExtractor.exe](https://github.com/uKeps/wallpaper-pkg-extractor/releases/latest)** · single file, no install, no Python needed
+**[⬇ Download WallpaperExtractor.exe](https://github.com/uKeps/wallpaper-engine-extractor/releases/latest)** · single file, no install, no Python needed
 
 <p align="center"><img src="assets/screenshot.png" width="460" alt="Wallpaper Engine Extractor window after extracting a wallpaper"></p>
 
@@ -42,8 +42,8 @@ Each release ships a `checksums.txt` to verify the download: `Get-FileHash Wallp
 Needed for the CLI, on Linux, or when the exe is blocked. Requires [Python 3.10+](https://www.python.org/downloads/) (check "Add Python to PATH" during install).
 
 ```bash
-git clone https://github.com/uKeps/wallpaper-pkg-extractor.git
-cd wallpaper-pkg-extractor
+git clone https://github.com/uKeps/wallpaper-engine-extractor.git
+cd wallpaper-engine-extractor
 pip install -r requirements.txt   # optional, see below
 python main.py                    # opens the GUI
 ```

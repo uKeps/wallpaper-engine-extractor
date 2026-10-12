@@ -1,4 +1,4 @@
-# wallpaper-pkg-extractor
+# wallpaper-engine-extractor
 
 Extracts images and videos out of Wallpaper Engine Steam Workshop wallpapers.
 Python 3.12 in practice, **3.10+ minimum** — the code uses PEP 604 unions (`Path | None`).
