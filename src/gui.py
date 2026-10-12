@@ -1,6 +1,7 @@
 """Modern dark-themed Tkinter GUI for Wallpaper Engine PKG & TEX Extractor."""
 
 import os
+import subprocess
 import sys
 import threading
 import tkinter as tk
@@ -26,11 +27,14 @@ BG_COLOR = "#121214"
 SURFACE_COLOR = "#1e1e24"
 TEXT_COLOR = "#e2e2e7"
 TEXT_MUTED = "#8e8e9f"
-PRIMARY_COLOR = "#3b82f6"       # Premium Blue
+PRIMARY_COLOR = "#3b82f6"
 PRIMARY_HOVER = "#2563eb"
-ACCENT_COLOR = "#10b981"        # Emerald Green
+ACCENT_COLOR = "#10b981"
 BORDER_COLOR = "#2e2e38"
 LOG_BG = "#0d0d0f"
+
+# Tk falls back to the closest system font where Segoe UI isn't installed
+FONT = "Segoe UI"
 
 
 def resource_path(relative: str) -> Path:
@@ -59,38 +63,45 @@ def get_default_output_dir() -> Path:
     return base / "Wallpaper Extracted"
 
 
+def open_folder(path: Path):
+    if sys.platform == "win32":
+        os.startfile(path)
+    else:
+        subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(path)])
+
+
 class ModernButton(tk.Button):
-    """A customized Tkinter button with hover effects and modern style."""
+    """A flat Tkinter button with a hover color."""
     def __init__(self, master, **kwargs):
         hover_bg = kwargs.pop("hover_bg", PRIMARY_HOVER)
-        normal_bg = kwargs.get("bg", PRIMARY_COLOR)
-        
-        super().__init__(
-            master,
+        normal_bg = kwargs.setdefault("bg", PRIMARY_COLOR)
+
+        options = dict(
             fg=TEXT_COLOR,
             relief="flat",
             activebackground=hover_bg,
             activeforeground=TEXT_COLOR,
+            disabledforeground=TEXT_MUTED,
             cursor="hand2",
-            padx=15,
-            pady=8,
-            font=("Arial", 10, "bold"),
+            padx=14,
+            pady=7,
+            font=(FONT, 10),
             bd=0,
-            **kwargs
+            highlightthickness=0,
         )
-        
-        self.bind("<Enter>", lambda e: self.configure(bg=hover_bg))
-        self.bind("<Leave>", lambda e: self.configure(bg=normal_bg))
+        super().__init__(master, **{**options, **kwargs})
+
+        self.bind("<Enter>", lambda e: self["state"] != "disabled" and self.configure(bg=hover_bg))
+        self.bind("<Leave>", lambda e: self["state"] != "disabled" and self.configure(bg=normal_bg))
 
 
 class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
     def __init__(self):
         super().__init__()
 
-        self.title("Wallpaper Engine Asset Extractor")
-        self.geometry("700x600")
+        self.title("Wallpaper Engine Extractor")
         self.configure(bg=BG_COLOR)
-        self.resizable(True, True)
+        self.minsize(520, 0)
 
         # Set Window Icon if possible (fallback gracefully).
         # `default=` also applies it to child Toplevels such as the wallpaper browser.
@@ -108,214 +119,134 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         self.is_running = False
 
         self.create_widgets()
+        self.input_path_var.trace_add("write", lambda *_: self.show_input())
 
         if HAS_DND:
             self.drop_target_register(DND_FILES)
             self.dnd_bind("<<Drop>>", self.on_drop)
-        
+            self.dnd_bind("<<DropEnter>>", lambda e: self.highlight_drop_zone(True) or e.action)
+            self.dnd_bind("<<DropLeave>>", lambda e: self.highlight_drop_zone(False))
+
     def create_widgets(self):
-        # Apply style overrides
         style = ttk.Style()
         style.theme_use("clam")
-        style.configure(".", background=BG_COLOR, foreground=TEXT_COLOR)
-        style.configure("TLabel", background=BG_COLOR, foreground=TEXT_COLOR, font=("Arial", 10))
-        style.configure("TCheckbutton", background=BG_COLOR, foreground=TEXT_COLOR, font=("Arial", 9))
-        
-        # Main Container
-        main_frame = tk.Frame(self, bg=BG_COLOR, padx=20, pady=20)
+        style.configure(
+            "TCheckbutton", background=BG_COLOR, foreground=TEXT_COLOR, font=(FONT, 10),
+            indicatorbackground=SURFACE_COLOR, indicatorforeground=TEXT_COLOR,
+            indicatorrelief="flat", focuscolor=BG_COLOR, padding=(0, 3),
+        )
+        style.map(
+            "TCheckbutton",
+            background=[("active", BG_COLOR)],
+            foreground=[("disabled", TEXT_MUTED)],
+            indicatorbackground=[("selected", PRIMARY_COLOR), ("active", BORDER_COLOR)],
+        )
+
+        self.main_frame = main_frame = tk.Frame(self, bg=BG_COLOR, padx=28, pady=24)
         main_frame.pack(fill="both", expand=True)
-        
-        # Header
-        header_label = tk.Label(
-            main_frame,
-            text="Wallpaper Engine Extractor",
-            font=("Arial", 18, "bold"),
-            bg=BG_COLOR,
-            fg=TEXT_COLOR
-        )
-        header_label.pack(anchor="w", pady=(0, 5))
-        
-        sub_header = tk.Label(
-            main_frame,
-            text="Extract scene.pkg archives and convert proprietary .tex textures into standard images.",
-            font=("Arial", 10),
-            bg=BG_COLOR,
-            fg=TEXT_MUTED
-        )
-        sub_header.pack(anchor="w", pady=(0, 20))
-        
-        # Input Selection Frame
-        input_frame = tk.LabelFrame(
-            main_frame,
-            text=" File Selection ",
-            font=("Arial", 10, "bold"),
-            bg=BG_COLOR,
-            fg=PRIMARY_COLOR,
-            bd=1,
-            relief="solid",
-            padx=15,
-            pady=15
-        )
-        input_frame.pack(fill="x", pady=(0, 15))
-        
-        # Grid Configuration for Inputs
-        input_frame.columnconfigure(1, weight=1)
-        
-        # Input File path row
-        tk.Label(input_frame, text="Input File:", bg=BG_COLOR, fg=TEXT_COLOR).grid(row=0, column=0, sticky="w", pady=5)
-        input_entry = tk.Entry(
-            input_frame,
-            textvariable=self.input_path_var,
-            bg=SURFACE_COLOR,
-            fg=TEXT_COLOR,
-            insertbackground=TEXT_COLOR,
-            relief="flat",
-            bd=5,
-            highlightbackground=BORDER_COLOR,
-            font=("Arial", 10)
-        )
-        input_entry.grid(row=0, column=1, sticky="ew", padx=10, pady=5)
-        browse_input_btn = ModernButton(
-            input_frame,
-            text="Browse",
-            bg=SURFACE_COLOR,
-            hover_bg=BORDER_COLOR,
-            command=self.browse_input
-        )
-        browse_input_btn.grid(row=0, column=2, pady=5)
-        
-        # Output File path row
-        tk.Label(input_frame, text="Output Folder:", bg=BG_COLOR, fg=TEXT_COLOR).grid(row=1, column=0, sticky="w", pady=5)
-        output_entry = tk.Entry(
-            input_frame,
-            textvariable=self.output_path_var,
-            bg=SURFACE_COLOR,
-            fg=TEXT_COLOR,
-            insertbackground=TEXT_COLOR,
-            relief="flat",
-            bd=5,
-            highlightbackground=BORDER_COLOR,
-            font=("Arial", 10)
-        )
-        output_entry.grid(row=1, column=1, sticky="ew", padx=10, pady=5)
-        browse_output_btn = ModernButton(
-            input_frame,
-            text="Browse",
-            bg=SURFACE_COLOR,
-            hover_bg=BORDER_COLOR,
-            command=self.browse_output
-        )
-        browse_output_btn.grid(row=1, column=2, pady=5)
 
-        # Auto-detect installed Steam Workshop wallpapers
-        detect_btn = ModernButton(
-            input_frame,
-            text="Detect Installed Wallpapers (Steam)",
-            bg=ACCENT_COLOR,
-            hover_bg="#0d9668",
-            command=self.open_wallpaper_browser
-        )
-        detect_btn.grid(row=2, column=0, columnspan=3, sticky="w", pady=(10, 0))
-
-        # Drag & drop hint / availability indicator
-        dnd_text = (
-            "Tip: you can also drag & drop a wallpaper file anywhere in this window"
-            if HAS_DND else
-            "Install tkinterdnd2 (pip install tkinterdnd2) to enable drag & drop"
-        )
         tk.Label(
-            input_frame, text=dnd_text, bg=BG_COLOR, fg=TEXT_MUTED, font=("Arial", 9, "italic")
-        ).grid(row=3, column=0, columnspan=3, sticky="w", pady=(8, 0))
+            main_frame, text="Wallpaper Engine Extractor", font=(FONT, 16, "bold"),
+            bg=BG_COLOR, fg=TEXT_COLOR
+        ).pack(anchor="w")
+        tk.Label(
+            main_frame, text="Get the image or video out of any wallpaper.",
+            font=(FONT, 10), bg=BG_COLOR, fg=TEXT_MUTED
+        ).pack(anchor="w", pady=(2, 18))
 
-        # Options Frame
-        options_frame = tk.Frame(main_frame, bg=BG_COLOR)
-        options_frame.pack(fill="x", pady=(0, 15))
-        
-        # Checkboxes using standard Tkinter Checkbutton but styled
-        cb_style = {"bg": BG_COLOR, "fg": TEXT_COLOR, "selectcolor": SURFACE_COLOR, "activebackground": BG_COLOR, "activeforeground": TEXT_COLOR, "font": ("Arial", 10)}
-        
-        self.cb_convert = tk.Checkbutton(
-            options_frame,
-            text="Convert .tex textures to PNG/JPG",
-            variable=self.convert_tex_var,
-            command=self.toggle_tex_options,
-            **cb_style
+        # Drop zone: shows the current input and holds the two ways to pick one
+        self.drop_zone = tk.Frame(
+            main_frame, bg=SURFACE_COLOR, padx=20, pady=26,
+            highlightthickness=1, highlightbackground=BORDER_COLOR
         )
-        self.cb_convert.pack(anchor="w", side="top", pady=2)
-        
-        self.cb_mips = tk.Checkbutton(
-            options_frame,
-            text="Extract all mipmap sizes (instead of just the largest texture resolution)",
-            variable=self.extract_all_mips_var,
-            **cb_style
+        self.drop_zone.pack(fill="x")
+        self.input_title = tk.Label(self.drop_zone, font=(FONT, 12, "bold"), bg=SURFACE_COLOR, fg=TEXT_COLOR)
+        self.input_title.pack()
+        self.input_detail = tk.Label(self.drop_zone, font=(FONT, 9), bg=SURFACE_COLOR, fg=TEXT_MUTED)
+        self.input_detail.pack(pady=(2, 14))
+        buttons = tk.Frame(self.drop_zone, bg=SURFACE_COLOR)
+        buttons.pack()
+        ModernButton(
+            buttons, text="Find in Steam", bg=PRIMARY_COLOR, hover_bg=PRIMARY_HOVER,
+            command=self.open_wallpaper_browser
+        ).pack(side="left", padx=4)
+        ModernButton(
+            buttons, text="Browse files", bg=BORDER_COLOR, hover_bg="#3a3a46",
+            command=self.browse_input
+        ).pack(side="left", padx=4)
+        self.show_input()
+
+        # Output folder: read-only so long paths clip instead of stretching the window
+        output_row = tk.Frame(main_frame, bg=BG_COLOR)
+        output_row.pack(fill="x", pady=(16, 10))
+        tk.Label(output_row, text="Save to", font=(FONT, 10), bg=BG_COLOR, fg=TEXT_MUTED).pack(side="left")
+        ModernButton(
+            output_row, text="Change", bg=BG_COLOR, hover_bg=SURFACE_COLOR, padx=8, pady=2,
+            command=self.browse_output
+        ).pack(side="right")
+        tk.Entry(
+            output_row, textvariable=self.output_path_var, state="readonly", font=(FONT, 10),
+            readonlybackground=BG_COLOR, fg=TEXT_COLOR, relief="flat", bd=0, highlightthickness=0
+        ).pack(side="left", fill="x", expand=True, padx=(10, 0))
+
+        ttk.Checkbutton(
+            main_frame, text="Images only (skip shaders, scripts and JSON)",
+            variable=self.cleanup_non_images_var
+        ).pack(anchor="w")
+        ttk.Checkbutton(
+            main_frame, text="Convert .tex textures to PNG/JPG",
+            variable=self.convert_tex_var, command=self.toggle_tex_options
+        ).pack(anchor="w")
+        self.cb_mips = ttk.Checkbutton(
+            main_frame, text="Include every mipmap size", variable=self.extract_all_mips_var
         )
-        self.cb_mips.pack(anchor="w", side="top", pady=2, padx=20)
-        
-        self.cb_cleanup = tk.Checkbutton(
-            options_frame,
-            text="Keep ONLY wallpaper images (delete shaders, scripts, and temp files)",
-            variable=self.cleanup_non_images_var,
-            **cb_style
-        )
-        self.cb_cleanup.pack(anchor="w", side="top", pady=2)
-        
-        # Pillow status indicator
-        pillow_text = "Pillow: Installed (RAW texture decompression enabled)" if HAS_PILLOW else "Pillow: Not installed (RAW textures will extract as BMP)"
-        pillow_color = ACCENT_COLOR if HAS_PILLOW else TEXT_MUTED
-        lbl_pillow = tk.Label(options_frame, text=pillow_text, fg=pillow_color, bg=BG_COLOR, font=("Arial", 9, "italic"))
-        lbl_pillow.pack(anchor="w", side="top", pady=(5, 0))
-        
-        # Action Button Frame
-        action_frame = tk.Frame(main_frame, bg=BG_COLOR)
-        action_frame.pack(side="bottom", fill="x", pady=(10, 0))
-        
+        self.cb_mips.pack(anchor="w", padx=(24, 0))
+
+        if not HAS_PILLOW:
+            tk.Label(
+                main_frame, text="Pillow not installed: RAW textures will be saved as BMP",
+                font=(FONT, 9), bg=BG_COLOR, fg=TEXT_MUTED
+            ).pack(anchor="w", pady=(6, 0))
+
         self.btn_run = ModernButton(
-            action_frame,
-            text="Extract & Convert Assets",
-            bg=PRIMARY_COLOR,
-            hover_bg=PRIMARY_HOVER,
-            command=self.start_extraction
+            main_frame, text="Extract", bg=PRIMARY_COLOR, hover_bg=PRIMARY_HOVER,
+            font=(FONT, 11, "bold"), pady=10, command=self.start_extraction
         )
-        self.btn_run.pack(side="right")
+        self.btn_run.pack(fill="x", pady=(18, 0))
 
-        # Progress Log Frame
-        log_frame = tk.LabelFrame(
-            main_frame,
-            text=" Log Output ",
-            font=("Arial", 10, "bold"),
-            bg=BG_COLOR,
-            fg=PRIMARY_COLOR,
-            bd=1,
-            relief="solid",
-            padx=10,
-            pady=10
+        # Status line and log stay hidden until the first extraction
+        self.status_row = tk.Frame(main_frame, bg=BG_COLOR)
+        self.status_label = tk.Label(self.status_row, font=(FONT, 10), bg=BG_COLOR, fg=TEXT_MUTED)
+        self.status_label.pack(side="left")
+        self.btn_open = ModernButton(
+            self.status_row, text="Open folder", bg=BG_COLOR, hover_bg=SURFACE_COLOR, padx=8, pady=2,
+            command=lambda: open_folder(Path(self.output_path_var.get()))
         )
-        log_frame.pack(fill="both", expand=True)
-        
-        # Scrollbar and text log widget
         self.log_text = tk.Text(
-            log_frame,
-            bg=LOG_BG,
-            fg=TEXT_COLOR,
-            relief="flat",
-            bd=0,
-            font=("Consolas", 9),
-            state="disabled",
-            insertbackground=TEXT_COLOR
+            main_frame, height=8, bg=LOG_BG, fg=TEXT_MUTED, relief="flat", bd=0, padx=10, pady=8,
+            highlightthickness=0, font=("Consolas", 9), state="disabled", wrap="word"
         )
-        self.log_text.pack(side="left", fill="both", expand=True)
-        
-        scrollbar = tk.Scrollbar(log_frame, command=self.log_text.yview, bg=BG_COLOR, elementborderwidth=0)
-        scrollbar.pack(side="right", fill="y")
-        self.log_text.configure(yscrollcommand=scrollbar.set)
-        
+
+    def show_input(self, title: str | None = None):
+        value = self.input_path_var.get().strip()
+        if not value:
+            self.input_title.configure(text="Drop a wallpaper here" if HAS_DND else "Choose a wallpaper")
+            self.input_detail.configure(text="scene.pkg, .tex, .mp4 or .webm")
+            return
+        path = Path(value)
+        self.input_title.configure(text=title or path.name)
+        self.input_detail.configure(text=f"{path.parent.name}/{path.name}" if title else f"in {path.parent.name}")
+
+    def highlight_drop_zone(self, active: bool):
+        self.drop_zone.configure(highlightbackground=PRIMARY_COLOR if active else BORDER_COLOR)
+
     def toggle_tex_options(self):
         if self.convert_tex_var.get():
-            self.cb_mips.configure(state="normal")
+            self.cb_mips.state(["!disabled"])
         else:
-            self.cb_mips.configure(state="disabled")
+            self.cb_mips.state(["disabled"])
             self.extract_all_mips_var.set(False)
-            
+
     def browse_input(self):
         file_path = filedialog.askopenfilename(
             title="Select scene.pkg, .tex, or video wallpaper file",
@@ -340,8 +271,10 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         self.wait_window(dialog)
         if dialog.selected_asset_path:
             self.input_path_var.set(str(dialog.selected_asset_path))
+            self.show_input(title=dialog.selected_title)
 
     def on_drop(self, event):
+        self.highlight_drop_zone(False)
         paths = self.tk.splitlist(event.data)
         if not paths:
             return
@@ -385,14 +318,18 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
             
         output_path = Path(output_folder)
         
-        # Clear logs
+        # Clear logs and reveal them on the first run
         self.log_text.configure(state="normal")
         self.log_text.delete("1.0", "end")
         self.log_text.configure(state="disabled")
-        
+        self.status_row.pack(fill="x", pady=(14, 6))
+        self.log_text.pack(fill="both", expand=True)
+        self.btn_open.pack_forget()
+        self.status_label.configure(text="Extracting...", fg=TEXT_MUTED)
+
         # Lock UI
         self.is_running = True
-        self.btn_run.configure(state="disabled", bg=SURFACE_COLOR, text="Processing...")
+        self.btn_run.configure(state="disabled", bg=SURFACE_COLOR, text="Extracting...")
         
         # Spawn background thread to prevent UI freezing
         thread = threading.Thread(
@@ -436,17 +373,21 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
             else:
                 self.log_message("Error: Unsupported file format.")
                 
-            self.log_message("\n--- Extraction completed successfully! ---")
-            # Update UI on completion
-            self.after(0, lambda: messagebox.showinfo("Success", "Assets extracted successfully!"))
-            
+            self.log_message("\nDone.")
+            self.after(0, self.show_done)
+
         except Exception as e:
             self.log_message(f"\n[ERROR] An error occurred: {e}")
+            self.after(0, lambda: self.status_label.configure(text="Extraction failed, see the log below", fg="#ef4444"))
             self.after(0, lambda: messagebox.showerror("Extraction Error", f"An error occurred: {e}"))
-            
+
         finally:
             self.is_running = False
-            self.after(0, lambda: self.btn_run.configure(state="normal", bg=PRIMARY_COLOR, text="Extract & Convert Assets"))
+            self.after(0, lambda: self.btn_run.configure(state="normal", bg=PRIMARY_COLOR, text="Extract"))
+
+    def show_done(self):
+        self.status_label.configure(text="Done", fg=ACCENT_COLOR)
+        self.btn_open.pack(side="right")
 
 
 def main():
