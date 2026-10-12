@@ -15,16 +15,18 @@ Workshop wallpapers come packed as `scene.pkg` archives with textures in Wallpap
 - **A GUI**, with drag and drop
 - **Auto-detection** of every installed wallpaper via Steam, with thumbnails, so there's no digging through numbered folders
 - **Video wallpapers** (`.mp4`/`.webm`) handled in the same place
-- **"Images only" mode** that throws away shaders, scripts and JSON and keeps just the wallpaper
-- **A CLI too**, if you'd rather script it
+- **"Only keep images and videos"** mode that throws away shaders, scripts and JSON and keeps just the wallpaper
+- **A CLI too**, if you'd rather script it, including a whole Workshop folder at once
+
+Texture support matches RePKG: DXT1/3/5, RGBA8888, RG88 and R8, LZ4 compression, embedded PNG/JPG, animated sprite sheets (also saved as a `.gif`) and video textures.
 
 ## Usage
 
 1. Open `WallpaperExtractor.exe`
-2. Click **Find in Steam** and pick a wallpaper, or drop a `scene.pkg`, `.tex` or video file onto the window
+2. Click **Find in Steam** and pick a wallpaper, or drop its Workshop folder (or a `scene.pkg`, `.tex` or video file) onto the window
 3. Click **Extract**, then **Open folder**
 
-Files go to `Wallpaper Extracted` on your Desktop unless you change it. "Images only" is on by default, so you get just the wallpaper, not its shaders and scripts.
+Each wallpaper gets its own folder, named after its title, inside `Wallpaper Extracted` on your Desktop (you can change where). "Only keep images and videos" is on by default, so you get just the wallpaper, not its shaders and scripts.
 
 Web-type wallpapers show up in the list but can't be extracted, they don't have a fixed asset to pull.
 
@@ -48,7 +50,7 @@ pip install -r requirements.txt   # optional, see below
 python main.py                    # opens the GUI
 ```
 
-`pip install` is optional. Without it, PNG/JPG textures still extract fine, RAW textures fall back to BMP, and drag & drop is disabled.
+`pip install` is optional. Without it everything still extracts: textures that need decoding are saved as BMP instead of PNG (slower, a few seconds for a large one), animated textures come out as the sprite sheet without the `.gif`, and drag & drop is disabled.
 
 ### CLI
 
@@ -65,16 +67,21 @@ python main.py "path/to/scene.pkg" -o "C:/Users/YourName/Desktop/output"
 # a standalone .tex file or a video wallpaper works the same way
 python main.py "path/to/texture.tex" -o out
 python main.py "path/to/video.mp4" -o out
+
+# a folder: every wallpaper under it, each into its own subfolder named after its title
+python main.py "C:/Program Files (x86)/Steam/steamapps/workshop/content/431960" -o out
 ```
 
 ```
 positional arguments:
-  input                 Path to scene.pkg, a standalone .tex file, or a video wallpaper (.mp4/.webm)
+  input                 Path to a scene.pkg, a .tex file, a video wallpaper (.mp4/.webm), or a folder
+                        (every wallpaper found under it is extracted into its own subfolder)
 
 options:
   -h, --help            Show this help message and exit
-  -o, --output PATH     Output directory (default: <name>_extracted next to input)
-  --no-tex-convert      Skip converting extracted .tex files to PNG/JPG
+  -o, --output PATH     Output directory (default: <name>_extracted next to a .pkg or folder,
+                        the input's own folder for a .tex or video)
+  --no-tex-convert      Keep .tex files as they are instead of converting them to images
   --all-mipmaps         Extract all mipmap levels, not just the highest resolution
   --no-cleanup          Keep all extracted files (shaders, JSON, scripts, etc.)
   --gui                 Force launch the GUI even when arguments are provided
@@ -97,9 +104,9 @@ C:\Program Files (x86)\Steam\steamapps\workshop\content\431960\<wallpaper_ID>\
 
 ## How it works
 
-**`.pkg`**: binary archive. Root path string (`PKGV0024`-style, identifies the WE version), a uint32 file count, then entries (name, offset, size), then all file data concatenated.
+**`.pkg`**: binary archive. A version string (`PKGV0024`-style), a uint32 file count, then entries (name, offset, size), then all file data concatenated.
 
-**`.tex`**: three sections, `TEXV` (version), `TEXI` (width/height), `TEXB` (mipmap data). Each mipmap has width, height, size and image bytes. Instead of hardcoded offsets, which break between format versions, the parser scans for the `(width, height)` byte pattern right after `TEXB` to find the first mipmap.
+**`.tex`**: a `TEXV` version tag, then `TEXI` (pixel format, flags, padded texture size and real image size), then a `TEXB` container (`TEXB0001` to `TEXB0004`) with one or more images, each a list of mipmaps. Mipmaps are either raw pixels in the `TEXI` format (DXT1/3/5, RGBA8888, RG88, R8), often LZ4-compressed, or a complete embedded file (PNG, JPG, MP4). Animated textures add a `TEXS` section describing frames on a sprite sheet. The layout follows [RePKG](https://github.com/notscuffed/repkg)'s reader; the output is cropped from the padded texture to the real image size.
 
 **Video**: no `.pkg` involved, the `.mp4`/`.webm` already sits loose in the Workshop folder. "Extracting" is just a copy.
 
