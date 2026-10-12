@@ -33,6 +33,7 @@ class WallpaperBrowserDialog(tk.Toplevel):
         self.grab_set()
 
         self.selected_asset_path = None
+        self.selected_title = None
         self._thumbnail_refs = []  # keep PhotoImage references alive
 
         self._build_widgets()
@@ -151,4 +152,5 @@ class WallpaperBrowserDialog(tk.Toplevel):
 
     def _select(self, wp):
         self.selected_asset_path = wp.asset_path
+        self.selected_title = wp.title
         self.destroy()
