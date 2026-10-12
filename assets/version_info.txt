@@ -2,8 +2,8 @@
 # Shows up under right-click > Properties > Details on the built .exe.
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 0, 0, 0),
-    prodvers=(1, 0, 0, 0),
+    filevers=(1, 1, 0, 0),
+    prodvers=(1, 1, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -18,12 +18,12 @@ VSVersionInfo(
         [
           StringStruct("CompanyName", "uKeps"),
           StringStruct("FileDescription", "Wallpaper Engine Asset Extractor"),
-          StringStruct("FileVersion", "1.0.0.0"),
+          StringStruct("FileVersion", "1.1.0.0"),
           StringStruct("InternalName", "WallpaperExtractor"),
           StringStruct("LegalCopyright", "MIT License - Copyright (c) uKeps"),
           StringStruct("OriginalFilename", "WallpaperExtractor.exe"),
           StringStruct("ProductName", "Wallpaper Engine Asset Extractor"),
-          StringStruct("ProductVersion", "1.0.0.0"),
+          StringStruct("ProductVersion", "1.1.0.0"),
         ]
       )
     ]),
