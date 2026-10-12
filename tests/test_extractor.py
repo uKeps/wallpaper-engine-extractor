@@ -107,7 +107,8 @@ class PackageTest(unittest.TestCase):
 class FolderTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
-        self.tmp = Path(self._tmp.name)
+        # Resolved like the CLI resolves its input (Windows temp dirs can be 8.3 short names)
+        self.tmp = Path(self._tmp.name).resolve()
 
     def tearDown(self):
         self._tmp.cleanup()
