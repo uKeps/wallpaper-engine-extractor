@@ -144,29 +144,39 @@ def _find_video(folder: Path, project: dict) -> Optional[Path]:
     return None
 
 
+def wallpaper_from_folder(folder: Path) -> Optional[WallpaperInfo]:
+    """Describe one wallpaper folder (a workshop item), or None if it isn't a folder."""
+    folder = Path(folder)
+    if not folder.is_dir():
+        return None
+
+    project = {}
+    project_path = folder / "project.json"
+    if project_path.is_file():
+        try:
+            project = json.loads(project_path.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, json.JSONDecodeError):
+            project = {}
+    if not isinstance(project, dict):
+        project = {}
+
+    return WallpaperInfo(
+        workshop_id=folder.name,
+        title=str(project.get("title") or folder.name),
+        folder=folder,
+        pkg_path=_find_pkg(folder, project),
+        video_path=_find_video(folder, project),
+        preview_path=_find_preview(folder, project),
+        wp_type=(project.get("type") or "unknown").lower(),
+    )
+
+
 def find_installed_wallpapers() -> list[WallpaperInfo]:
     """Scan every detected Steam workshop library for Wallpaper Engine wallpapers."""
     wallpapers = []
     for content_dir in find_workshop_content_dirs():
         for folder in sorted(content_dir.iterdir()):
-            if not folder.is_dir():
-                continue
-
-            project = {}
-            project_path = folder / "project.json"
-            if project_path.is_file():
-                try:
-                    project = json.loads(project_path.read_text(encoding="utf-8", errors="replace"))
-                except (OSError, json.JSONDecodeError):
-                    project = {}
-
-            wallpapers.append(WallpaperInfo(
-                workshop_id=folder.name,
-                title=project.get("title") or folder.name,
-                folder=folder,
-                pkg_path=_find_pkg(folder, project),
-                video_path=_find_video(folder, project),
-                preview_path=_find_preview(folder, project),
-                wp_type=(project.get("type") or "unknown").lower(),
-            ))
+            wallpaper = wallpaper_from_folder(folder)
+            if wallpaper:
+                wallpapers.append(wallpaper)
     return wallpapers

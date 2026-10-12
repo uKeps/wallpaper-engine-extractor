@@ -12,48 +12,96 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(errors="replace")
 
-from src.extractor import extract_package
+from src.extractor import extract_package, wallpaper_output_name
+from src.steam_finder import wallpaper_from_folder
 from src.tex_parser import extract_tex_file
 from src.video_extractor import extract_video_file, SUPPORTED_VIDEO_EXTENSIONS
 
 
+def extract_one(input_path: Path, output_dir: Path | None, args) -> Path:
+    """Extract a single .pkg, .tex or video file and return where the output went."""
+    suffix = input_path.suffix.lower()
+    if suffix == ".pkg":
+        output_dir = output_dir or input_path.parent / f"{input_path.stem}_extracted"
+        extract_package(
+            pkg_path=input_path,
+            output_dir=output_dir,
+            extract_tex=not args.no_tex_convert,
+            extract_all_mipmaps=args.all_mipmaps,
+            cleanup_non_images=not args.no_cleanup
+        )
+    elif suffix == ".tex":
+        output_dir = output_dir or input_path.parent
+        print(f"Reading texture: {input_path.name}...")
+        imgs = extract_tex_file(
+            tex_path=input_path,
+            output_dir=output_dir,
+            extract_all_mipmaps=args.all_mipmaps
+        )
+        print(f"Successfully extracted {len(imgs)} image(s) from .tex container.")
+        for img in imgs:
+            print(f"Created: {img.name}")
+    elif suffix in SUPPORTED_VIDEO_EXTENSIONS:
+        output_dir = output_dir or input_path.parent
+        print(f"Processing video wallpaper: {input_path.name}...")
+        output_video = extract_video_file(video_path=input_path, output_dir=output_dir)
+        print(f"Created: {output_video.name}")
+    else:
+        raise ValueError("Unsupported file format. Must be .pkg, .tex, .mp4, .webm, or a folder")
+    return output_dir
+
+
+def find_wallpaper_assets(directory: Path) -> list[tuple[Path, Path]]:
+    """Every (wallpaper folder, .pkg or video) under a directory, like RePKG's -r."""
+    folders = {p.parent for pattern in ("*.pkg", "project.json") for p in directory.rglob(pattern)}
+    found = []
+    for folder in sorted(folders):
+        if not (folder / "project.json").is_file():
+            # Loose packages with no wallpaper metadata: each one is its own wallpaper
+            found.extend((pkg, pkg) for pkg in sorted(folder.glob("*.pkg")))
+            continue
+        wallpaper = wallpaper_from_folder(folder)
+        if wallpaper and wallpaper.asset_path:
+            found.append((folder, wallpaper.asset_path))
+    return found
+
+
 def run_cli(args):
     """Execute the extraction in CLI mode."""
-    input_path = Path(args.input)
-    if not input_path.is_file():
-        print(f"Error: Input file does not exist: {input_path}")
-        sys.exit(1)
-        
+    input_path = Path(args.input).resolve()
     output_dir = Path(args.output) if args.output else None
-    
-    try:
-        if input_path.suffix.lower() == ".pkg":
-            extract_package(
-                pkg_path=input_path,
-                output_dir=output_dir,
-                extract_tex=not args.no_tex_convert,
-                extract_all_mipmaps=args.all_mipmaps,
-                cleanup_non_images=not args.no_cleanup
-            )
-        elif input_path.suffix.lower() == ".tex":
-            print(f"Reading texture: {input_path.name}...")
-            imgs = extract_tex_file(
-                tex_path=input_path,
-                output_dir=output_dir,
-                extract_all_mipmaps=args.all_mipmaps
-            )
-            print(f"Successfully extracted {len(imgs)} image(s) from .tex container.")
-            for img in imgs:
-                print(f"Created: {img.name}")
-        elif input_path.suffix.lower() in SUPPORTED_VIDEO_EXTENSIONS:
-            print(f"Processing video wallpaper: {input_path.name}...")
-            output_video = extract_video_file(video_path=input_path, output_dir=output_dir)
-            print(f"Created: {output_video.name}")
-        else:
-            print("Error: Unsupported file format. Must be .pkg, .tex, .mp4, or .webm")
+
+    if input_path.is_dir():
+        wallpapers = find_wallpaper_assets(input_path)
+        if not wallpapers:
+            print(f"Error: No wallpaper (.pkg or video) found under: {input_path}")
             sys.exit(1)
-            
-        print("Done!")
+        output_root = output_dir or input_path.parent / f"{input_path.name}_extracted"
+        used_names: set[str] = set()
+        failures = 0
+        for folder, asset in wallpapers:
+            name = wallpaper_output_name(folder)
+            if name.casefold() in used_names:
+                name = f"{name} ({folder.name})"
+            used_names.add(name.casefold())
+            print(f"\n### {asset}")
+            try:
+                extract_one(asset, output_root / name, args)
+            except Exception as e:
+                failures += 1
+                print(f"Error during extraction of {asset}: {e}")
+        print(f"\nDone! Extracted {len(wallpapers) - failures} of {len(wallpapers)} wallpaper(s) to: {output_root}")
+        if failures:
+            sys.exit(1)
+        return
+
+    if not input_path.is_file():
+        print(f"Error: Input path does not exist: {input_path}")
+        sys.exit(1)
+
+    try:
+        output = extract_one(input_path, output_dir, args)
+        print(f"Done! Output: {output}")
     except Exception as e:
         print(f"Error during extraction: {e}")
         sys.exit(1)
@@ -89,16 +137,17 @@ def main():
     parser.add_argument(
         "input",
         nargs="?",
-        help="Path to the scene.pkg, an individual .tex file, or a video wallpaper (.mp4/.webm)."
+        help="Path to a scene.pkg, a .tex file, a video wallpaper (.mp4/.webm), or a folder "
+             "(every wallpaper found under it is extracted into its own subfolder)."
     )
     parser.add_argument(
         "-o", "--output",
-        help="Directory to save extracted files. Defaults to '<pkg_name>_extracted'."
+        help="Directory to save extracted files. Defaults to '<pkg_name>_extracted' (or '<folder>_extracted' for a folder)."
     )
     parser.add_argument(
         "--no-tex-convert",
         action="store_true",
-        help="Disable converting extracted .tex files to PNG/JPG."
+        help="Keep .tex files as they are instead of converting them to images."
     )
     parser.add_argument(
         "--all-mipmaps",

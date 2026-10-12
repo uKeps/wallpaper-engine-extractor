@@ -8,9 +8,14 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 
-from src.extractor import extract_package
+from src.extractor import extract_package, wallpaper_output_name
+from src.steam_finder import wallpaper_from_folder
 from src.tex_parser import extract_tex_file, HAS_PILLOW
 from src.video_extractor import extract_video_file, SUPPORTED_VIDEO_EXTENSIONS
+from src.theme import (
+    ACCENT_COLOR, BG_COLOR, BORDER_COLOR, FONT, LOG_BG, PRIMARY_COLOR, PRIMARY_HOVER,
+    SURFACE_COLOR, TEXT_COLOR, TEXT_MUTED, ModernButton,
+)
 from src.wallpaper_browser import WallpaperBrowserDialog
 
 # Try to import tkinterdnd2 for drag-and-drop support (optional)
@@ -21,20 +26,6 @@ except ImportError:
     HAS_DND = False
 
 SUPPORTED_INPUT_EXTENSIONS = (".pkg", ".tex", *SUPPORTED_VIDEO_EXTENSIONS)
-
-# Colors
-BG_COLOR = "#121214"
-SURFACE_COLOR = "#1e1e24"
-TEXT_COLOR = "#e2e2e7"
-TEXT_MUTED = "#8e8e9f"
-PRIMARY_COLOR = "#3b82f6"
-PRIMARY_HOVER = "#2563eb"
-ACCENT_COLOR = "#10b981"
-BORDER_COLOR = "#2e2e38"
-LOG_BG = "#0d0d0f"
-
-# Tk falls back to the closest system font where Segoe UI isn't installed
-FONT = "Segoe UI"
 
 
 def resource_path(relative: str) -> Path:
@@ -70,31 +61,6 @@ def open_folder(path: Path):
         subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(path)])
 
 
-class ModernButton(tk.Button):
-    """A flat Tkinter button with a hover color."""
-    def __init__(self, master, **kwargs):
-        hover_bg = kwargs.pop("hover_bg", PRIMARY_HOVER)
-        normal_bg = kwargs.setdefault("bg", PRIMARY_COLOR)
-
-        options = dict(
-            fg=TEXT_COLOR,
-            relief="flat",
-            activebackground=hover_bg,
-            activeforeground=TEXT_COLOR,
-            disabledforeground=TEXT_MUTED,
-            cursor="hand2",
-            padx=14,
-            pady=7,
-            font=(FONT, 10),
-            bd=0,
-            highlightthickness=0,
-        )
-        super().__init__(master, **{**options, **kwargs})
-
-        self.bind("<Enter>", lambda e: self["state"] != "disabled" and self.configure(bg=hover_bg))
-        self.bind("<Leave>", lambda e: self["state"] != "disabled" and self.configure(bg=normal_bg))
-
-
 class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
     def __init__(self):
         super().__init__()
@@ -113,10 +79,9 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         # Variables
         self.input_path_var = tk.StringVar()
         self.output_path_var = tk.StringVar(value=str(get_default_output_dir()))
-        self.convert_tex_var = tk.BooleanVar(value=True)
-        self.extract_all_mips_var = tk.BooleanVar(value=False)
         self.cleanup_non_images_var = tk.BooleanVar(value=True)
         self.is_running = False
+        self.result_dir = None
 
         self.create_widgets()
         self.input_path_var.trace_add("write", lambda *_: self.show_input())
@@ -126,6 +91,7 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
             self.dnd_bind("<<Drop>>", self.on_drop)
             self.dnd_bind("<<DropEnter>>", lambda e: self.highlight_drop_zone(True) or e.action)
             self.dnd_bind("<<DropLeave>>", lambda e: self.highlight_drop_zone(False))
+        self.bind("<Return>", lambda e: self.start_extraction())
 
     def create_widgets(self):
         style = ttk.Style()
@@ -133,7 +99,7 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         style.configure(
             "TCheckbutton", background=BG_COLOR, foreground=TEXT_COLOR, font=(FONT, 10),
             indicatorbackground=SURFACE_COLOR, indicatorforeground=TEXT_COLOR,
-            indicatorrelief="flat", focuscolor=BG_COLOR, padding=(0, 3),
+            indicatorrelief="flat", focuscolor=TEXT_COLOR, padding=(0, 3),
         )
         style.map(
             "TCheckbutton",
@@ -160,7 +126,10 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
             highlightthickness=1, highlightbackground=BORDER_COLOR
         )
         self.drop_zone.pack(fill="x")
-        self.input_title = tk.Label(self.drop_zone, font=(FONT, 12, "bold"), bg=SURFACE_COLOR, fg=TEXT_COLOR)
+        self.input_title = tk.Label(
+            self.drop_zone, font=(FONT, 12, "bold"), bg=SURFACE_COLOR, fg=TEXT_COLOR,
+            wraplength=440, justify="center"
+        )
         self.input_title.pack()
         self.input_detail = tk.Label(self.drop_zone, font=(FONT, 9), bg=SURFACE_COLOR, fg=TEXT_MUTED)
         self.input_detail.pack(pady=(2, 14))
@@ -190,17 +159,8 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         ).pack(side="left", fill="x", expand=True, padx=(10, 0))
 
         ttk.Checkbutton(
-            main_frame, text="Images only (skip shaders, scripts and JSON)",
-            variable=self.cleanup_non_images_var
+            main_frame, text="Only keep images and videos", variable=self.cleanup_non_images_var
         ).pack(anchor="w")
-        ttk.Checkbutton(
-            main_frame, text="Convert .tex textures to PNG/JPG",
-            variable=self.convert_tex_var, command=self.toggle_tex_options
-        ).pack(anchor="w")
-        self.cb_mips = ttk.Checkbutton(
-            main_frame, text="Include every mipmap size", variable=self.extract_all_mips_var
-        )
-        self.cb_mips.pack(anchor="w", padx=(24, 0))
 
         if not HAS_PILLOW:
             tk.Label(
@@ -219,8 +179,8 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         self.status_label = tk.Label(self.status_row, font=(FONT, 10), bg=BG_COLOR, fg=TEXT_MUTED)
         self.status_label.pack(side="left")
         self.btn_open = ModernButton(
-            self.status_row, text="Open folder", bg=BG_COLOR, hover_bg=SURFACE_COLOR, padx=8, pady=2,
-            command=lambda: open_folder(Path(self.output_path_var.get()))
+            self.status_row, text="Open folder", bg=BORDER_COLOR, hover_bg="#3a3a46", padx=10, pady=3,
+            command=lambda: open_folder(self.result_dir)
         )
         self.log_text = tk.Text(
             main_frame, height=8, bg=LOG_BG, fg=TEXT_MUTED, relief="flat", bd=0, padx=10, pady=8,
@@ -240,12 +200,22 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
     def highlight_drop_zone(self, active: bool):
         self.drop_zone.configure(highlightbackground=PRIMARY_COLOR if active else BORDER_COLOR)
 
-    def toggle_tex_options(self):
-        if self.convert_tex_var.get():
-            self.cb_mips.state(["!disabled"])
-        else:
-            self.cb_mips.state(["disabled"])
-            self.extract_all_mips_var.set(False)
+    def set_input(self, path: Path):
+        """Accept a wallpaper file, or the wallpaper's folder, preview or project.json."""
+        folder = path if path.is_dir() else path.parent
+        wallpaper = wallpaper_from_folder(folder) if (folder / "project.json").is_file() else None
+        if path.is_dir() or path.suffix.lower() not in SUPPORTED_INPUT_EXTENSIONS:
+            if not (wallpaper and wallpaper.asset_path):
+                messagebox.showerror(
+                    "Unsupported File",
+                    f"'{path.name}' is not a supported wallpaper file.\n"
+                    "Drop a wallpaper folder, or a .pkg, .tex, .mp4 or .webm file."
+                )
+                return
+            path = wallpaper.asset_path
+        self.input_path_var.set(str(path))
+        if wallpaper and path == wallpaper.asset_path:
+            self.show_input(title=wallpaper.title)
 
     def browse_input(self):
         file_path = filedialog.askopenfilename(
@@ -259,7 +229,7 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
             ]
         )
         if file_path:
-            self.input_path_var.set(file_path)
+            self.set_input(Path(file_path))
 
     def browse_output(self):
         folder_path = filedialog.askdirectory(title="Select Output Directory")
@@ -279,18 +249,13 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         if not paths:
             return
 
-        path = Path(paths[0])
-        if path.suffix.lower() not in SUPPORTED_INPUT_EXTENSIONS:
-            messagebox.showerror(
-                "Unsupported File",
-                f"'{path.name}' is not a supported wallpaper file.\n"
-                "Drop a .pkg, .tex, .mp4, or .webm file."
-            )
-            return
+        self.set_input(Path(paths[0]))
 
-        self.input_path_var.set(str(path))
-            
     def log_message(self, message: str):
+        # Called from the extraction thread: hand the widget update to the Tk main loop
+        self.after(0, self._append_log, message)
+
+    def _append_log(self, message: str):
         self.log_text.configure(state="normal")
         self.log_text.insert("end", message + "\n")
         self.log_text.see("end")
@@ -304,19 +269,22 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         output_folder = self.output_path_var.get().strip()
         
         if not input_file:
-            messagebox.showerror("Error", "Please select an input file (.pkg or .tex).")
+            messagebox.showinfo(
+                "No wallpaper selected",
+                "Pick a wallpaper first: Find in Steam, Browse files, or drop one here."
+            )
             return
             
         input_path = Path(input_file)
         if not input_path.is_file():
-            messagebox.showerror("Error", "The selected input file does not exist.")
+            messagebox.showerror("Error", "That file is gone. It may have been moved or unsubscribed in Steam.")
             return
             
         if not output_folder:
             messagebox.showerror("Error", "Please select an output folder.")
             return
             
-        output_path = Path(output_folder)
+        output_path = Path(output_folder) / wallpaper_output_name(input_path)
         
         # Clear logs and reveal them on the first run
         self.log_text.configure(state="normal")
@@ -334,59 +302,50 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         # Spawn background thread to prevent UI freezing
         thread = threading.Thread(
             target=self.run_extraction,
-            args=(input_path, output_path),
+            args=(input_path, output_path, self.cleanup_non_images_var.get()),
             daemon=True
         )
         thread.start()
         
-    def run_extraction(self, input_path: Path, output_path: Path):
+    def run_extraction(self, input_path: Path, output_path: Path, cleanup: bool):
         try:
             self.log_message("Starting extraction process...\n")
-            
-            if input_path.suffix.lower() == ".pkg":
-                extract_package(
+            suffix = input_path.suffix.lower()
+
+            if suffix == ".pkg":
+                paths = extract_package(
                     pkg_path=input_path,
                     output_dir=output_path,
-                    extract_tex=self.convert_tex_var.get(),
-                    extract_all_mipmaps=self.extract_all_mips_var.get(),
-                    cleanup_non_images=self.cleanup_non_images_var.get(),
+                    cleanup_non_images=cleanup,
                     log_callback=self.log_message
                 )
-            elif input_path.suffix.lower() == ".tex":
+            elif suffix == ".tex":
                 self.log_message(f"Reading texture {input_path.name}...")
-                imgs = extract_tex_file(
-                    tex_path=input_path,
-                    output_dir=output_path,
-                    extract_all_mipmaps=self.extract_all_mips_var.get()
-                )
-                self.log_message(f"Extracted {len(imgs)} image(s) from .tex container.")
-                for img in imgs:
-                    self.log_message(f"Created: {img.name}")
-            elif input_path.suffix.lower() in SUPPORTED_VIDEO_EXTENSIONS:
+                paths = extract_tex_file(input_path, output_path, log_callback=self.log_message)
+            elif suffix in SUPPORTED_VIDEO_EXTENSIONS:
                 self.log_message(f"Processing video wallpaper {input_path.name}...")
-                output_video = extract_video_file(
-                    video_path=input_path,
-                    output_dir=output_path,
-                    log_callback=self.log_message
-                )
-                self.log_message(f"Created: {output_video.name}")
+                paths = [extract_video_file(input_path, output_path, log_callback=self.log_message)]
             else:
-                self.log_message("Error: Unsupported file format.")
-                
-            self.log_message("\nDone.")
-            self.after(0, self.show_done)
+                raise ValueError("Unsupported file format")
+            if suffix != ".pkg":
+                self.log_message(f"Saved {len(paths)} file(s) to {output_path}")
+
+            self.after(0, self.show_done, paths)
 
         except Exception as e:
-            self.log_message(f"\n[ERROR] An error occurred: {e}")
+            self.log_message(f"\nFailed: {e}")
             self.after(0, lambda: self.status_label.configure(text="Extraction failed, see the log below", fg="#ef4444"))
-            self.after(0, lambda: messagebox.showerror("Extraction Error", f"An error occurred: {e}"))
 
         finally:
             self.is_running = False
             self.after(0, lambda: self.btn_run.configure(state="normal", bg=PRIMARY_COLOR, text="Extract"))
 
-    def show_done(self):
-        self.status_label.configure(text="Done", fg=ACCENT_COLOR)
+    def show_done(self, paths: list[Path]):
+        if not paths:
+            self.status_label.configure(text="Nothing was extracted, see the log", fg="#f59e0b")
+            return
+        self.result_dir = Path(os.path.commonpath([p.parent for p in paths]))
+        self.status_label.configure(text=f"Saved {len(paths)} file(s)", fg=ACCENT_COLOR)
         self.btn_open.pack(side="right")
 
 
