@@ -18,7 +18,7 @@ Workshop wallpapers come packed as `scene.pkg` archives with textures in Wallpap
 - **"Only keep images and videos"** mode that throws away shaders, scripts and JSON and keeps just the wallpaper
 - **A CLI too**, if you'd rather script it, including a whole Workshop folder at once
 
-Texture support matches RePKG: DXT1/3/5, RGBA8888, RG88 and R8, LZ4 compression, embedded PNG/JPG, animated sprite sheets (also saved as a `.gif`) and video textures.
+It decodes every texture format Wallpaper Engine uses: DXT1/3/5, RGBA8888, RG88 and R8, LZ4 compression, embedded PNG/JPG, animated sprite sheets (also saved as a `.gif`) and video textures.
 
 ## Usage
 
@@ -106,7 +106,7 @@ C:\Program Files (x86)\Steam\steamapps\workshop\content\431960\<wallpaper_ID>\
 
 **`.pkg`**: binary archive. A version string (`PKGV0024`-style), a uint32 file count, then entries (name, offset, size), then all file data concatenated.
 
-**`.tex`**: a `TEXV` version tag, then `TEXI` (pixel format, flags, padded texture size and real image size), then a `TEXB` container (`TEXB0001` to `TEXB0004`) with one or more images, each a list of mipmaps. Mipmaps are either raw pixels in the `TEXI` format (DXT1/3/5, RGBA8888, RG88, R8), often LZ4-compressed, or a complete embedded file (PNG, JPG, MP4). Animated textures add a `TEXS` section describing frames on a sprite sheet. The layout follows [RePKG](https://github.com/notscuffed/repkg)'s reader; the output is cropped from the padded texture to the real image size.
+**`.tex`**: a `TEXV` version tag, then `TEXI` (pixel format, flags, padded texture size and real image size), then a `TEXB` container (`TEXB0001` to `TEXB0004`) with one or more images, each a list of mipmaps. Mipmaps are either raw pixels in the `TEXI` format (DXT1/3/5, RGBA8888, RG88, R8), often LZ4-compressed, or a complete embedded file (PNG, JPG, MP4). Animated textures add a `TEXS` section describing frames on a sprite sheet. The output is cropped from the padded texture to the real image size.
 
 **Video**: no `.pkg` involved, the `.mp4`/`.webm` already sits loose in the Workshop folder. "Extracting" is just a copy.
 
