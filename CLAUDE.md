@@ -5,9 +5,20 @@ Python 3.12 in practice, **3.10+ minimum** — the code uses PEP 604 unions (`Pa
 
 ## Workflow
 
-Don't commit straight to `master`. Branch, open a PR, wait for the build workflow to
-pass, then merge. The workflow builds on every PR, so a packaging break surfaces there
-instead of during a release.
+`master` is protected by a ruleset: changes land only through a PR, and three checks
+must pass, with no bypass. Branch, open a PR, wait for the checks, then merge.
+
+- `build`: Windows, Python 3.12, unit tests with Pillow, then the exe. A packaging break
+  surfaces here instead of during a release.
+- `test-minimal`: Python 3.10 with no optional dependencies, the install path the README
+  promises.
+- `lint`: ruff, pyflakes rules only (`F`), pinned version.
+
+Same checks locally: `python -m unittest discover -s tests` and
+`ruff check --select F --target-version py310 .`.
+
+Releases: bump `assets/version_info.txt` in a PR, then push a `v*` tag; the workflow
+attaches the exe and `checksums.txt` to the release.
 
 Commits and PRs follow Conventional Commits, in English. Everything that lands in the
 repo is English — code, comments, docs, commit messages.
