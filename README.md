@@ -6,7 +6,7 @@ Get the actual image or video out of any Wallpaper Engine wallpaper. Point it at
 
 **[⬇ Download WallpaperExtractor.exe](https://github.com/uKeps/wallpaper-pkg-extractor/releases/latest)** · single file, no install, no Python needed
 
-<!-- TODO: add a GUI screenshot here, e.g. ![Wallpaper Engine Extractor GUI](assets/screenshot.png) -->
+<p align="center"><img src="assets/screenshot.png" width="460" alt="Wallpaper Engine Extractor window after extracting a wallpaper"></p>
 
 ## Why this one
 
@@ -21,10 +21,10 @@ Workshop wallpapers come packed as `scene.pkg` archives with textures in Wallpap
 ## Usage
 
 1. Open `WallpaperExtractor.exe`
-2. Click **Detect Installed Wallpapers (Steam)** and pick one, or drag in a `scene.pkg`, `.tex` or video file
-3. Check the output folder (auto-filled next to the input)
-4. Leave "Keep ONLY wallpaper images" checked if you just want the image
-5. Click **Extract & Convert Assets**
+2. Click **Find in Steam** and pick a wallpaper, or drop a `scene.pkg`, `.tex` or video file onto the window
+3. Click **Extract**, then **Open folder**
+
+Files go to `Wallpaper Extracted` on your Desktop unless you change it. "Images only" is on by default, so you get just the wallpaper, not its shaders and scripts.
 
 Web-type wallpapers show up in the list but can't be extracted, they don't have a fixed asset to pull.
 
