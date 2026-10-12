@@ -1,4 +1,4 @@
-name: Build Windows executable
+name: CI
 
 on:
   push:
@@ -10,6 +10,29 @@ permissions:
   contents: write
 
 jobs:
+  # Errors only (undefined names, unused imports...), no style rules. Pinned so a
+  # ruff release can't turn the check red on its own.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: pipx run ruff==0.12.0 check --select F --target-version py310 --output-format github .
+
+  # The promise in README/CLAUDE.md: Python 3.10+ and no Pillow/tkinterdnd2 required.
+  test-minimal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.10"
+
+      - name: Test without optional dependencies
+        run: |
+          python -m unittest discover -s tests
+          python -c "import src.gui, src.wallpaper_browser"
+
   build:
     runs-on: windows-latest
     steps:
