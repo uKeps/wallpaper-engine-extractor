@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v7
       - run: pipx run ruff==0.12.0 check --select F --target-version py310 --output-format github .
 
-  # The promise in README/CLAUDE.md: Python 3.10+ and no Pillow/tkinterdnd2 required.
+  # The promise in the README: Python 3.10+ and no Pillow/tkinterdnd2 required.
   test-minimal:
     runs-on: ubuntu-latest
     steps:
