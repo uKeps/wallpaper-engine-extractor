@@ -2,7 +2,7 @@
 
 # Wallpaper Engine Extractor
 
-Get the original image or video out of a Wallpaper Engine wallpaper. It unpacks `scene.pkg` and converts `.tex` textures to normal images, so you can use the picture as a regular desktop or phone background.
+Get the original image or video out of a Wallpaper Engine wallpaper. It unpacks `scene.pkg` and converts `.tex` textures to normal images, so you can use the picture as a regular desktop background.
 
 [![Latest release](https://img.shields.io/github/v/release/uKeps/wallpaper-engine-extractor?label=version)](https://github.com/uKeps/wallpaper-engine-extractor/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/uKeps/wallpaper-engine-extractor/total)](https://github.com/uKeps/wallpaper-engine-extractor/releases)
