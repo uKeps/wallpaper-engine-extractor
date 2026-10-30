@@ -1,4 +1,4 @@
-<img src="assets/icon.png" width="64" align="right" alt="">
+<img src="https://raw.githubusercontent.com/uKeps/wallpaper-engine-extractor/master/assets/icon.png" width="64" align="right" alt="">
 
 # Wallpaper Engine Extractor
 
@@ -6,7 +6,7 @@ Get the original image or video out of a Wallpaper Engine wallpaper. It unpacks 
 
 [![Latest release](https://img.shields.io/github/v/release/uKeps/wallpaper-engine-extractor?label=version)](https://github.com/uKeps/wallpaper-engine-extractor/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/uKeps/wallpaper-engine-extractor/total)](https://github.com/uKeps/wallpaper-engine-extractor/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/uKeps/wallpaper-engine-extractor/blob/master/LICENSE)
 
 <p align="center">
   <a href="https://github.com/uKeps/wallpaper-engine-extractor/releases/latest/download/WallpaperExtractor.exe">
@@ -16,7 +16,7 @@ Get the original image or video out of a Wallpaper Engine wallpaper. It unpacks 
   <sub>Windows 10 and 11 · one file, no install · no Python, .NET or RePKG needed · <a href="#is-it-safe-windows-says-it-protected-my-pc">is it safe?</a></sub>
 </p>
 
-<p align="center"><img src="assets/screenshot.png" width="460" alt="Wallpaper Engine Extractor after extracting a wallpaper"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/uKeps/wallpaper-engine-extractor/master/assets/screenshot.png" width="460" alt="Wallpaper Engine Extractor after extracting a wallpaper"></p>
 
 ## How to use
 
@@ -32,7 +32,7 @@ Your files land in **`Desktop\Wallpaper Extracted\<wallpaper title>`**. Click **
 - **Video wallpapers:** the original `.mp4` or `.webm`, copied out.
 - **Just the pictures:** "Only keep images and videos" (on by default) throws away shaders, scripts and settings files.
 
-Compressed, LZ4-packed and animated textures are all handled. Details are in [docs/FORMAT.md](docs/FORMAT.md).
+Compressed, LZ4-packed and animated textures are all handled. Details are in [docs/FORMAT.md](https://github.com/uKeps/wallpaper-engine-extractor/blob/master/docs/FORMAT.md).
 
 ## FAQ
 
@@ -104,7 +104,7 @@ python main.py ".../workshop/content/431960" -o out # a whole folder: one subfol
 
 </details>
 
-To contribute or build the exe, see [CONTRIBUTING.md](CONTRIBUTING.md).
+To contribute or build the exe, see [CONTRIBUTING.md](https://github.com/uKeps/wallpaper-engine-extractor/blob/master/CONTRIBUTING.md).
 
 ## Disclaimer
 
@@ -112,4 +112,4 @@ For personal use, like saving the picture of a wallpaper you're subscribed to. W
 
 ## License
 
-[MIT](LICENSE) © uKeps
+[MIT](https://github.com/uKeps/wallpaper-engine-extractor/blob/master/LICENSE) © uKeps
