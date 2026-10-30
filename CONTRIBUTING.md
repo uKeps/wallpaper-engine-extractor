@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping out. To run the app from source, see [Running from source](README.md#running-from-source) in the README.
+Thanks for helping out. To run the app from source, see [Run from source](README.md#run-from-source-linux-macos-command-line) in the README.
 
 Python 3.12 in practice, **3.10+ minimum**: the code uses PEP 604 unions (`Path | None`).
 
@@ -21,7 +21,7 @@ pipx run ruff==0.12.0 check --select F --target-version py310 .
 
 Commits and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/). Everything in the repo is in English: code, comments, docs, commit messages.
 
-Releases: bump `assets/version_info.txt` in a PR, then push a `v*` tag. The workflow attaches the exe and `checksums.txt` to the release.
+Releases: bump `assets/version_info.txt` in a PR, then push a `v*` tag. The workflow attaches the exe and `checksums.txt` to the release. It can also be run by hand from the Actions tab; the exe and checksum then show up as a build artifact instead of a release.
 
 ## Optional dependencies are genuinely optional
 
@@ -29,10 +29,10 @@ Pillow and tkinterdnd2 are both listed in `requirements.txt`, but the app must k
 
 ## Packaging
 
-`.\build.ps1` produces `dist\WallpaperExtractor.exe` (PyInstaller, onefile, windowed).
+`.\build.ps1` produces `dist\WallpaperExtractor.exe` (PyInstaller, onefile, windowed, about 17 MB). Python, Tk, Pillow and the `tkdnd` Tcl package are all bundled in.
 
 Bundled assets must be resolved through `resource_path()` in `src/gui.py`. A plain relative path works from a source checkout and breaks inside the bundle, where files live under `sys._MEIPASS`.
 
 **If drag-and-drop stops working in a build but works from source, look here first.** tkinterdnd2 ships its support as a Tcl package (`tkdnd`) of `.dll`/`.tcl` files, not as ordinary imports. PyInstaller's contrib hook collects them today. If that ever regresses, `App` in `src/gui.py` falls back to plain `tk.Tk` and drag-and-drop just disappears, with no exception and no log line.
 
-The executable is deliberately **unsigned**. A code signing certificate is a recurring yearly cost, and an OV certificate would not even grant immediate SmartScreen reputation. Please open an issue before proposing a signing step; the published SHA256 checksum is the intended substitute. See the README for what users are told.
+The executable is deliberately **unsigned**. A code signing certificate is a recurring yearly cost, and an OV certificate would not even grant immediate SmartScreen reputation. Please open an issue before proposing a signing step; the published SHA256 checksum is the intended substitute. If signing ever happens, [SignPath Foundation](https://signpath.org/) is the route to look at: it gives open source projects that build in public CI a free certificate. See the [README](README.md#is-it-safe-windows-says-it-protected-my-pc) for what users are told.
