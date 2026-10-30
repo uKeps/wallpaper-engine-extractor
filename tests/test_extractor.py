@@ -7,9 +7,9 @@ from pathlib import Path
 from unittest import mock
 
 from builders import mip, pkg_bytes, tex_bytes
-from src import tex_parser as tp
-from src.extractor import extract_package, parse_package, wallpaper_output_name
-from src.steam_finder import wallpaper_from_folder
+from wallpaper_engine_extractor import tex_parser as tp
+from wallpaper_engine_extractor.extractor import extract_package, parse_package, wallpaper_output_name
+from wallpaper_engine_extractor.steam_finder import wallpaper_from_folder
 
 ROOT = Path(__file__).resolve().parent.parent
 MP4_BYTES = b"\0\0\0\x18ftypisom" + b"\0" * 20

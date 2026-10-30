@@ -10,7 +10,7 @@ from builders import (
     COLOR_BLOCK_3, COLOR_ROW_3, DXT5_ALPHA_5, DXT5_CODES_5, COLOR_BLOCK,
     dxt_block, dxt_block_rgba, lz4_compress, lz4_sequence, mip, read_image, tex_bytes,
 )
-from src import tex_parser as tp
+from wallpaper_engine_extractor import tex_parser as tp
 
 PILLOW_MODES = [False] + ([True] if tp.HAS_PILLOW else [])
 CONTAINERS = ["TEXB0001", "TEXB0002", "TEXB0003", "TEXB0004"]

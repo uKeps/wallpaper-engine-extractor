@@ -8,15 +8,15 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from pathlib import Path
 
-from src.extractor import extract_package, wallpaper_output_name
-from src.steam_finder import wallpaper_from_folder
-from src.tex_parser import extract_tex_file, HAS_PILLOW
-from src.video_extractor import extract_video_file, SUPPORTED_VIDEO_EXTENSIONS
-from src.theme import (
+from wallpaper_engine_extractor.extractor import extract_package, wallpaper_output_name
+from wallpaper_engine_extractor.steam_finder import wallpaper_from_folder
+from wallpaper_engine_extractor.tex_parser import extract_tex_file, HAS_PILLOW
+from wallpaper_engine_extractor.video_extractor import extract_video_file, SUPPORTED_VIDEO_EXTENSIONS
+from wallpaper_engine_extractor.theme import (
     ACCENT_COLOR, BG_COLOR, BORDER_COLOR, FONT, LOG_BG, PRIMARY_COLOR, PRIMARY_HOVER,
     SURFACE_COLOR, TEXT_COLOR, TEXT_MUTED, ModernButton,
 )
-from src.wallpaper_browser import WallpaperBrowserDialog
+from wallpaper_engine_extractor.wallpaper_browser import WallpaperBrowserDialog
 
 # Try to import tkinterdnd2 for drag-and-drop support (optional)
 try:
@@ -29,8 +29,8 @@ SUPPORTED_INPUT_EXTENSIONS = (".pkg", ".tex", *SUPPORTED_VIDEO_EXTENSIONS)
 
 
 def resource_path(relative: str) -> Path:
-    """Locate a bundled asset, both from a source checkout and from a PyInstaller build."""
-    base = getattr(sys, "_MEIPASS", None) or Path(__file__).resolve().parent.parent
+    """Locate a bundled asset: package data when installed or run from source, sys._MEIPASS in a PyInstaller build."""
+    base = getattr(sys, "_MEIPASS", None) or Path(__file__).resolve().parent
     return Path(base) / relative
 
 
