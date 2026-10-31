@@ -1,7 +1,9 @@
 """Command-line entry point: `wallpaper-engine-extractor`, `python -m wallpaper_engine_extractor`."""
 
 import argparse
+import re
 import sys
+from importlib import metadata
 from pathlib import Path
 
 from wallpaper_engine_extractor.extractor import extract_package, wallpaper_output_name
@@ -43,19 +45,37 @@ def extract_one(input_path: Path, output_dir: Path | None, args) -> Path:
     return output_dir
 
 
-def find_wallpaper_assets(directory: Path) -> list[tuple[Path, Path]]:
-    """Every (wallpaper folder, .pkg or video) under a directory, like RePKG's -r."""
+def package_version() -> str:
+    """The version_info.txt next to the sources (checkout, exe), else the installed metadata (wheel)."""
+    try:
+        text = (Path(__file__).resolve().parent.parent / "assets" / "version_info.txt").read_text()
+        return re.search(r'"ProductVersion", "(\d+\.\d+\.\d+)', text).group(1)
+    except (OSError, AttributeError):
+        pass
+    try:
+        return metadata.version("wallpaper-engine-extractor")
+    except metadata.PackageNotFoundError:
+        return "unknown"
+
+
+def find_wallpaper_assets(directory: Path) -> tuple[list[tuple[Path, Path]], list[tuple[str, str]]]:
+    """Every (wallpaper folder, .pkg or video) under a directory, like RePKG's -r,
+    plus (title, reason) for the wallpaper folders that have nothing to extract."""
     folders = {p.parent for pattern in ("*.pkg", "project.json") for p in directory.rglob(pattern)}
-    found = []
+    found, skipped = [], []
     for folder in sorted(folders):
         if not (folder / "project.json").is_file():
             # Loose packages with no wallpaper metadata: each one is its own wallpaper
             found.extend((pkg, pkg) for pkg in sorted(folder.glob("*.pkg")))
             continue
         wallpaper = wallpaper_from_folder(folder)
-        if wallpaper and wallpaper.asset_path:
+        if wallpaper.asset_path:
             found.append((folder, wallpaper.asset_path))
-    return found
+        elif wallpaper.wp_type in ("web", "application"):
+            skipped.append((wallpaper.title, f"{wallpaper.wp_type} wallpaper, nothing to extract"))
+        else:
+            skipped.append((wallpaper.title, "no .pkg or video found"))
+    return found, skipped
 
 
 def run_cli(args):
@@ -64,25 +84,39 @@ def run_cli(args):
     output_dir = Path(args.output) if args.output else None
 
     if input_path.is_dir():
-        wallpapers = find_wallpaper_assets(input_path)
-        if not wallpapers:
-            print(f"Error: No wallpaper (.pkg or video) found under: {input_path}")
+        wallpapers, skipped = find_wallpaper_assets(input_path)
+        for title, reason in skipped:
+            print(f'Skipped "{title}": {reason}' if wallpapers else f'Error: "{title}" can\'t be extracted: {reason}')
+        jobs = []  # (label, asset, output dir)
+        if wallpapers:
+            kind, output_root = "wallpaper", output_dir or input_path.parent / f"{input_path.name}_extracted"
+            used_names: set[str] = set()
+            for folder, asset in wallpapers:
+                name = wallpaper_output_name(folder)
+                if name.casefold() in used_names:
+                    name = f"{name} ({folder.name})"
+                used_names.add(name.casefold())
+                jobs.append((name, asset, output_root / name))
+        elif not skipped:
+            # Loose textures, like RePKG's -t: converted next to themselves, or mirrored into -o
+            kind, output_root = "texture", output_dir or input_path
+            for tex in sorted(input_path.rglob("*.tex")):
+                rel = tex.relative_to(input_path)
+                jobs.append((rel.as_posix(), tex, output_root / rel.parent))
+        if not jobs:
+            if not skipped:
+                print(f"Error: No wallpaper (.pkg, video or .tex) found under: {input_path}")
             sys.exit(1)
-        output_root = output_dir or input_path.parent / f"{input_path.name}_extracted"
-        used_names: set[str] = set()
         failures = 0
-        for folder, asset in wallpapers:
-            name = wallpaper_output_name(folder)
-            if name.casefold() in used_names:
-                name = f"{name} ({folder.name})"
-            used_names.add(name.casefold())
-            print(f"\n### {asset}")
+        for n, (label, asset, out) in enumerate(jobs, 1):
+            print(f"\n[{n}/{len(jobs)}] {label}")
             try:
-                extract_one(asset, output_root / name, args)
+                extract_one(asset, out, args)
             except Exception as e:
                 failures += 1
-                print(f"Error during extraction of {asset}: {e}")
-        print(f"\nDone! Extracted {len(wallpapers) - failures} of {len(wallpapers)} wallpaper(s) to: {output_root}")
+                print(f"Error during extraction of {label}: {e}")
+        summary = f"\nDone! Extracted {len(jobs) - failures} of {len(jobs)} {kind}(s) to: {output_root}"
+        print(summary + (f" ({len(skipped)} skipped, nothing to extract)" if skipped else ""))
         if failures:
             sys.exit(1)
         return
@@ -130,6 +164,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Extract Wallpaper Engine .pkg files and convert .tex textures to standard images."
     )
+    parser.add_argument("--version", action="version", version=f"wallpaper-engine-extractor {package_version()}")
     parser.add_argument(
         "input",
         nargs="?",
