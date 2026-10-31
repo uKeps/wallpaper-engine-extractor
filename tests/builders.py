@@ -1,5 +1,6 @@
 """Builders for synthetic .tex / .pkg / LZ4 test fixtures (layout per RePKG's readers)."""
 
+import json
 import struct
 from pathlib import Path
 
@@ -104,6 +105,41 @@ def pkg_bytes(entries: dict[str, bytes], magic="PKGV0024") -> bytes:
         header += pstr(name) + struct.pack("<II", len(blob), len(data))
         blob += data
     return bytes(header + blob)
+
+
+def r8_tex(width: int, height: int) -> bytes:
+    """A plain grayscale (R8) texture of the given size."""
+    return tex_bytes(fmt=9, size=(width, height), images=[[mip(width, height, b"\x80" * width * height)]])
+
+
+def scene_pkg_entries(scene: bytes | None = None) -> dict[str, bytes]:
+    """A scene package: a 128x64 sky layer covering the screen, a bigger character layer drawn
+    over part of it, an even bigger unreferenced mask, and a tiny texture.
+    """
+    def layer(name, **extra):
+        return {"image": f"models/{name}.json", "name": name, **extra}
+
+    if scene is None:
+        scene = json.dumps({
+            "general": {"orthogonalprojection": {"width": 128, "height": 64}},
+            "objects": [
+                {"particle": "particles/rain.json", "name": "rain"},
+                layer("character", size="100.00000 100.00000", scale="0.50000 0.50000 1.00000",
+                      origin="64.00000 32.00000 0.00000"),
+                layer("composelayer"),  # a model from Wallpaper Engine's own assets, not in the package
+                layer("sky", scale="1.00000 1.00000 1.00000", visible={"user": "showsky", "value": True}),
+            ],
+        }).encode()
+    entries = {"scene.json": scene}
+    for name in ("character", "sky"):
+        entries[f"models/{name}.json"] = json.dumps({"material": f"materials/{name}.json"}).encode()
+        entries[f"materials/{name}.json"] = json.dumps(
+            {"passes": [{"shader": "genericimage2", "textures": [name]}]}).encode()
+    entries["materials/sky.tex"] = r8_tex(128, 64)
+    entries["materials/character.tex"] = r8_tex(100, 100)
+    entries["materials/masks/glow_mask.tex"] = r8_tex(120, 120)
+    entries["materials/dot.tex"] = r8_tex(8, 8)
+    return entries
 
 
 def read_image(path: Path) -> tuple[int, int, bytes]:

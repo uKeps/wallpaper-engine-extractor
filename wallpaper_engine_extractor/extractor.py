@@ -3,6 +3,8 @@
 import json
 import os
 import re
+import shutil
+import struct
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
@@ -112,6 +114,95 @@ def wallpaper_output_name(input_path: Path) -> str:
     return name or "wallpaper"
 
 
+# Texture names that are almost never the wallpaper itself
+NOT_BACKGROUND = re.compile(r"mask|particle|fx|effect|noise|flowmap|shadow|glow", re.IGNORECASE)
+MIN_MAIN_IMAGE_AREA = 64 * 64
+
+
+def _tex_size(tex_path: Path) -> tuple[int, int]:
+    """Image width and height from a .tex header, (0, 0) if unreadable."""
+    try:
+        with open(tex_path, "rb") as f:
+            head = f.read(42)
+        # "TEXV0005\0TEXI0001\0", format, flags, texture w/h, image w/h
+        tex_w, tex_h, img_w, img_h = struct.unpack_from("<4i", head, 26)
+        return (img_w or tex_w, img_h or tex_h) if head.startswith(b"TEXV") else (0, 0)
+    except (OSError, struct.error):
+        return (0, 0)
+
+
+def _value(v):
+    """Unwrap a value bound to a user property: {"user": "name", "value": ...}."""
+    return v.get("value") if isinstance(v, dict) else v
+
+
+def _vec(v, n: int) -> list[float] | None:
+    """First n numbers of a scene vector ("1.0 2.0 3.0", a list, or a single number)."""
+    v = _value(v)
+    try:
+        if isinstance(v, (int, float)):
+            return [float(v)] * n
+        parts = [float(x) for x in (v.split() if isinstance(v, str) else v)]
+    except (TypeError, ValueError):
+        return None
+    return parts[:n] if len(parts) >= n else None
+
+
+def _scene_main_texture(root: Path, sizes: dict[Path, tuple[int, int]]) -> Path | None:
+    """The .tex of the bottom-most scene.json image layer that covers the screen, else of the largest layer."""
+    def load(rel) -> dict:
+        data = json.loads((root / rel).read_text(encoding="utf-8-sig", errors="replace"))
+        return data if isinstance(data, dict) else {}
+
+    scene = load("scene.json")
+    general = _value(scene.get("general"))
+    projection = _value(general.get("orthogonalprojection")) if isinstance(general, dict) else None
+    screen = _vec([_value(projection.get(k)) for k in ("width", "height")], 2) if isinstance(projection, dict) else None
+    objects = _value(scene.get("objects"))
+    best, best_area = None, 0.0
+    for obj in objects if isinstance(objects, list) else []:
+        # Objects are drawn in list order, so the first full-screen one is the bottom layer
+        if not isinstance(obj, dict) or not isinstance(obj.get("image"), str) or _value(obj.get("visible")) is False:
+            continue
+        try:
+            material = load(load(obj["image"])["material"])
+            tex = (root / "materials" / f"{material['passes'][0]['textures'][0]}.tex").resolve()
+        except (OSError, ValueError, LookupError, TypeError):
+            continue  # e.g. a model from Wallpaper Engine's own assets, not in this package
+        if tex not in sizes:
+            continue
+        size = _vec(obj.get("size"), 2)
+        if not size or not all(size):
+            size = sizes[tex]
+        scale = _vec(obj.get("scale"), 2) or [1.0, 1.0]
+        w, h = abs(size[0] * scale[0]), abs(size[1] * scale[1])
+        if screen and all(screen) and w >= 0.9 * screen[0] and h >= 0.9 * screen[1]:
+            return tex
+        if w * h > best_area:
+            best, best_area = tex, w * h
+    return best
+
+
+def find_main_image(root: Path, textures: dict[Path, list[Path]]) -> Path | None:
+    """Pick "the wallpaper" among the images converted from a scene's textures.
+
+    textures maps each converted .tex (still on disk) to the images made from it. Uses the
+    layers in scene.json when it can, else the largest texture that isn't a mask, effect or tiny.
+    """
+    images = {tex: imgs[0] for tex, imgs in textures.items() if imgs and imgs[0].suffix.lower() not in {".mp4", ".webm"}}
+    sizes = {tex: _tex_size(tex) for tex in images}
+    try:
+        tex = _scene_main_texture(root, sizes)
+    except Exception:
+        tex = None  # missing or malformed scene.json
+    if tex is None:
+        # ponytail: name/size heuristic, wrong when a character or effect layer is bigger than the background
+        candidates = [t for t in images if sizes[t][0] * sizes[t][1] >= MIN_MAIN_IMAGE_AREA
+                      and not NOT_BACKGROUND.search(t.relative_to(root).as_posix())]
+        tex = max(candidates, key=lambda t: (sizes[t][0] * sizes[t][1], t.stat().st_size), default=None)
+    return images.get(tex)
+
+
 def extract_package(
     pkg_path: Path,
     output_dir: Path | None = None,
@@ -190,7 +281,7 @@ def extract_package(
                 
     # 2. Convert .tex files to standard images if requested
     converted_image_paths: list[Path] = []
-    converted_tex: list[Path] = []
+    converted_tex: dict[Path, list[Path]] = {}
     if extract_tex and tex_files_to_convert:
         log(f"Converting {len(tex_files_to_convert)} .tex file(s) to standard images...")
         for tex_path in tex_files_to_convert:
@@ -198,12 +289,25 @@ def extract_package(
                 log(f"Decoding texture: {tex_path.relative_to(base_path)}")
                 imgs = extract_tex_file(tex_path, tex_path.parent, extract_all_mipmaps, log_callback=log)
                 converted_image_paths.extend(imgs)
-                converted_tex.append(tex_path)
+                converted_tex[tex_path] = imgs
             except Exception as e:
                 log(f"Error converting texture {tex_path.name}: {e}")
                 
     # Combine lists
     all_paths = list(dict.fromkeys(extracted_paths + converted_image_paths))
+
+    # A copy of the main image at the top of the folder, picked before cleanup deletes scene.json.
+    # Best effort: a wrong guess or a failure here must never fail the extraction.
+    try:
+        main_image = find_main_image(base_path, converted_tex)
+        if main_image:
+            main_copy = base_path / f"{wallpaper_output_name(pkg_path)}{main_image.suffix}"
+            if main_copy not in all_paths:
+                shutil.copyfile(main_image, main_copy)
+                all_paths.append(main_copy)
+                log(f"Main image: {main_copy.name}")
+    except Exception as e:
+        log(f"Couldn't pick the main image: {e}")
     
     # 3. Clean up non-image files if requested. Only files this run wrote are touched,
     # and a .tex is only removed once it was converted, so nothing is lost.

@@ -29,6 +29,7 @@ Your files land in **`Desktop\Wallpaper Extracted\<wallpaper title>`**. Click **
 ## What you get
 
 - **Scene wallpapers:** every image inside, as PNG (or JPG, when that's how it was packed). Animated textures also come out as a `.gif`.
+- **The main image:** a copy of the scene's background, named after the wallpaper, at the top of its folder.
 - **Video wallpapers:** the original `.mp4` or `.webm`, copied out.
 - **Just the pictures:** "Only keep images and videos" (on by default) throws away shaders, scripts and settings files.
 
@@ -42,7 +43,7 @@ In `Wallpaper Extracted` on your Desktop, one folder per wallpaper, named after 
 
 #### Why do I get several images instead of one?
 
-A scene wallpaper is built from layers: a background, plus things like rain, particles or a character drawn on top. Wallpaper Engine combines and animates them live. The extractor gives you each layer as its own image. The background is usually the largest file. The live effects can't be saved as a picture, so record your screen if you want the animated version.
+A scene wallpaper is built from layers: a background, plus things like rain, particles or a character drawn on top. Wallpaper Engine combines and animates them live. The extractor gives you each layer as its own image, and puts a copy of the main one (usually the background) at the top of the folder, named after the wallpaper. The live effects can't be saved as a picture, so record your screen if you want the animated version.
 
 #### Does it work on web or application wallpapers?
 

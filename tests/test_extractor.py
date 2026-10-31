@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -7,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from builders import mip, pkg_bytes, tex_bytes
+from builders import mip, pkg_bytes, scene_pkg_entries, tex_bytes
 from wallpaper_engine_extractor import tex_parser as tp
 from wallpaper_engine_extractor.extractor import extract_package, parse_package, wallpaper_output_name
 from wallpaper_engine_extractor import steam_finder
@@ -99,6 +100,36 @@ class PackageTest(unittest.TestCase):
                     extract_package(self.pkg, self.out, log_callback=self.logs.append)
                 if name != "cut data":  # header failures must not leave an empty folder behind
                     self.assertFalse(self.out.exists())
+
+    def extract_scene(self, entries, cleanup=True):
+        self.pkg.write_bytes(pkg_bytes(entries))
+        (self.tmp / "project.json").write_text(json.dumps({"title": "Night Sky"}))
+        return extract_package(self.pkg, self.out, cleanup_non_images=cleanup, log_callback=self.logs.append)
+
+    def test_main_image_from_scene(self):
+        paths = self.extract_scene(scene_pkg_entries())
+        # The layer covering the screen, not the bigger character or mask textures
+        self.assertEqual((self.out / "Night Sky.bmp").read_bytes(), (self.out / "materials/sky.bmp").read_bytes())
+        self.assertIn("Main image: Night Sky.bmp", self.logs)
+        self.assertIn(self.out.resolve() / "Night Sky.bmp", paths)
+        self.assertFalse((self.out / "scene.json").exists())  # cleanup still ran
+
+    def test_main_image_fallback_is_largest_non_mask(self):
+        entries = scene_pkg_entries()
+        del entries["scene.json"]
+        self.extract_scene(entries, cleanup=False)
+        self.assertEqual((self.out / "Night Sky.bmp").read_bytes(),
+                         (self.out / "materials/character.bmp").read_bytes())
+
+    def test_broken_scene_never_fails_extraction(self):
+        self.extract_scene(scene_pkg_entries(scene=b"{not json"))
+        self.assertTrue((self.out / "Night Sky.bmp").is_file())  # fell back to the textures
+        shutil.rmtree(self.out)
+        with mock.patch("wallpaper_engine_extractor.extractor.find_main_image", side_effect=RuntimeError("boom")):
+            paths = self.extract_scene(scene_pkg_entries())
+        self.assertIn("Couldn't pick the main image: boom", self.logs)
+        self.assertEqual(len(paths), 4)  # the four converted textures, nothing at the top
+        self.assertFalse((self.out / "Night Sky.bmp").exists())
 
     def test_parse_package(self):
         info = parse_package(self.pkg)
