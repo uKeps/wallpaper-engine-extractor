@@ -1,4 +1,5 @@
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -9,6 +10,7 @@ from unittest import mock
 from builders import mip, pkg_bytes, tex_bytes
 from wallpaper_engine_extractor import tex_parser as tp
 from wallpaper_engine_extractor.extractor import extract_package, parse_package, wallpaper_output_name
+from wallpaper_engine_extractor import steam_finder
 from wallpaper_engine_extractor.steam_finder import wallpaper_from_folder
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -113,11 +115,11 @@ class FolderTest(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
-    def wallpaper(self, folder_name, title=None, files=None):
+    def wallpaper(self, folder_name, title=None, files=None, wp_type="scene"):
         folder = self.tmp / "library" / folder_name
         folder.mkdir(parents=True)
         if title is not None:
-            (folder / "project.json").write_text(json.dumps({"title": title, "type": "scene"}))
+            (folder / "project.json").write_text(json.dumps({"title": title, "type": wp_type}))
         for name, data in (files or {}).items():
             (folder / name).write_bytes(data)
         return folder
@@ -182,10 +184,84 @@ class FolderTest(unittest.TestCase):
         self.assertIn(f"Output: {folder / 'scene_extracted'}", result.stdout)
         self.assertTrue(list((folder / "scene_extracted/materials").glob("back_2x2.*")))
 
+    def test_cli_skips_web_and_application_wallpapers(self):
+        self.wallpaper("111", "Scene", {"scene.pkg": pkg_bytes(ENTRIES)})
+        web = self.wallpaper("222", "Clock", {"index.html": b"<html></html>"}, wp_type="web")
+        self.wallpaper("333", "Visualizer", {"app.exe": b"MZ"}, wp_type="application")
+        out = self.tmp / "out"
+        result = self.run_cli(self.tmp / "library", "-o", out)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn('Skipped "Clock": web wallpaper, nothing to extract', result.stdout)
+        self.assertIn('Skipped "Visualizer": application wallpaper, nothing to extract', result.stdout)
+        self.assertIn("[1/1] Scene", result.stdout)
+        self.assertIn(f"Extracted 1 of 1 wallpaper(s) to: {out} (2 skipped, nothing to extract)", result.stdout)
+
+        result = self.run_cli(web, "-o", out)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('"Clock" can\'t be extracted: web wallpaper', result.stdout)
+
+    def test_cli_loose_textures(self):
+        folder = self.tmp / "textures"
+        (folder / "sub").mkdir(parents=True)
+        (folder / "a.tex").write_bytes(RGBA_TEX)
+        (folder / "sub/b.tex").write_bytes(RGBA_TEX)
+        result = self.run_cli(folder, "-o", self.tmp / "out")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("Extracted 2 of 2 texture(s)", result.stdout)
+        self.assertTrue(list((self.tmp / "out").glob("a.*")) and list((self.tmp / "out/sub").glob("b.*")))
+        result = self.run_cli(folder)  # no -o: next to each .tex
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue(list(folder.glob("a.[bp][mn][pg]")) and list((folder / "sub").glob("b.[bp][mn][pg]")))
+
+    def test_cli_version(self):
+        result = self.run_cli("--version")
+        self.assertRegex(result.stdout, r"^wallpaper-engine-extractor \d+\.\d+\.\d+")
+
     def test_cli_missing_input(self):
         result = self.run_cli(self.tmp / "nope")
         self.assertEqual(result.returncode, 1)
         self.assertIn("does not exist", result.stdout)
+
+
+class SteamFinderTest(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.home = Path(self._tmp.name).resolve()
+        for patcher in (mock.patch.object(Path, "home", return_value=self.home),
+                        mock.patch.object(steam_finder.platform, "system", return_value="Linux"),
+                        mock.patch.object(steam_finder, "_registry_steam_paths", return_value=[]),
+                        mock.patch.dict(os.environ)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        os.environ.pop("XDG_DATA_HOME", None)
+
+    def steam(self, root: Path, workshop_id: str):
+        item = root / "steamapps/workshop/content/431960" / workshop_id
+        item.mkdir(parents=True)
+        (item / "project.json").write_text(json.dumps({"title": workshop_id}))
+        # Steam lists its own folder as the first library, by its real path
+        (root / "steamapps/libraryfolders.vdf").write_text(f'"libraryfolders" {{ "0" {{ "path" "{root}" }} }}')
+
+    def ids(self):
+        return sorted(wp.workshop_id for wp in steam_finder.find_installed_wallpapers())
+
+    def test_symlinked_steam_root_is_listed_once(self):
+        real = self.home / ".local/share/Steam"
+        self.steam(real, "111")
+        (self.home / ".steam").mkdir()
+        try:
+            (self.home / ".steam/steam").symlink_to(real, target_is_directory=True)
+        except OSError:
+            self.skipTest("symlinks not permitted")
+        self.assertEqual(self.ids(), ["111"])
+
+    def test_xdg_data_home_snap_and_flatpak(self):
+        os.environ["XDG_DATA_HOME"] = str(self.home / "xdg")
+        self.steam(self.home / "xdg/Steam", "111")
+        self.steam(self.home / "snap/steam/common/.local/share/Steam", "222")
+        self.steam(self.home / ".var/app/com.valvesoftware.Steam/data/Steam", "333")
+        self.assertEqual(self.ids(), ["111", "222", "333"])
 
 
 if __name__ == "__main__":

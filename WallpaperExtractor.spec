@@ -15,7 +15,7 @@ a = Analysis(
     ["main.py"],
     pathex=[],
     binaries=[],
-    datas=[("wallpaper_engine_extractor/assets/icon.ico", "assets")],
+    datas=[("wallpaper_engine_extractor/assets/icon.ico", "assets"), ("assets/version_info.txt", "assets")],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
