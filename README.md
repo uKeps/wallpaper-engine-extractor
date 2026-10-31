@@ -1,131 +1,115 @@
-<img src="assets/icon.png" width="50" align="right" alt="">
+<img src="https://raw.githubusercontent.com/uKeps/wallpaper-engine-extractor/master/assets/icon.png" width="64" align="right" alt="">
 
 # Wallpaper Engine Extractor
 
-Get the actual image or video out of any Wallpaper Engine wallpaper. Point it at your Steam Workshop folder, pick a wallpaper, click extract. You get a normal PNG/JPG/MP4.
+Get the original image or video out of a Wallpaper Engine wallpaper. It unpacks `scene.pkg` and converts `.tex` textures to normal images, so you can use the picture as a regular desktop background.
 
-**[⬇ Download WallpaperExtractor.exe](https://github.com/uKeps/wallpaper-engine-extractor/releases/latest)** · single file, no install, no Python needed
+[![Latest release](https://img.shields.io/github/v/release/uKeps/wallpaper-engine-extractor?label=version)](https://github.com/uKeps/wallpaper-engine-extractor/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/uKeps/wallpaper-engine-extractor/total)](https://github.com/uKeps/wallpaper-engine-extractor/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/uKeps/wallpaper-engine-extractor/blob/master/LICENSE)
 
-<p align="center"><img src="assets/screenshot.png" width="460" alt="Wallpaper Engine Extractor window after extracting a wallpaper"></p>
+<p align="center">
+  <a href="https://github.com/uKeps/wallpaper-engine-extractor/releases/latest/download/WallpaperExtractor.exe">
+    <img src="https://img.shields.io/badge/Download_for_Windows-WallpaperExtractor.exe-2563eb?style=for-the-badge&logo=windows" alt="Download WallpaperExtractor.exe for Windows">
+  </a>
+  <br>
+  <sub>Windows 10 and 11 · one file, no install · no Python, .NET or RePKG needed · <a href="#is-it-safe-windows-says-it-protected-my-pc">is it safe?</a></sub>
+</p>
 
-## Features
+<p align="center"><img src="https://raw.githubusercontent.com/uKeps/wallpaper-engine-extractor/master/assets/screenshot.png" width="460" alt="Wallpaper Engine Extractor after extracting a wallpaper"></p>
 
-Workshop wallpapers come packed as `scene.pkg` archives with textures in Wallpaper Engine's own `.tex` format, so you can't just open them. This tool unpacks them for you, with:
+## How to use
 
-- **A GUI**, with drag and drop
-- **Auto-detection** of every installed wallpaper via Steam, with thumbnails, so there's no digging through numbered folders
-- **Video wallpapers** (`.mp4`/`.webm`) handled in the same place
-- **"Only keep images and videos"** mode that throws away shaders, scripts and JSON and keeps just the wallpaper
-- **A CLI too**, if you'd rather script it, including a whole Workshop folder at once
+1. Open `WallpaperExtractor.exe`.
+2. Click **Find in Steam** and pick a wallpaper from the list (it finds every wallpaper you've downloaded, with thumbnails). Or drag its Workshop folder onto the window.
+3. Click **Extract**, then **Open folder**.
 
-It decodes every texture format Wallpaper Engine uses: DXT1/3/5, RGBA8888, RG88 and R8, LZ4 compression, embedded PNG/JPG, animated sprite sheets (also saved as a `.gif`) and video textures.
+Your files land in **`Desktop\Wallpaper Extracted\<wallpaper title>`**. Click **Change** to save somewhere else.
 
-## Usage
+## What you get
 
-1. Open `WallpaperExtractor.exe`
-2. Click **Find in Steam** and pick a wallpaper, or drop its Workshop folder (or a `scene.pkg`, `.tex` or video file) onto the window
-3. Click **Extract**, then **Open folder**
+- **Scene wallpapers:** every image inside, as PNG (or JPG, when that's how it was packed). Animated textures also come out as a `.gif`.
+- **Video wallpapers:** the original `.mp4` or `.webm`, copied out.
+- **Just the pictures:** "Only keep images and videos" (on by default) throws away shaders, scripts and settings files.
 
-Each wallpaper gets its own folder, named after its title, inside `Wallpaper Extracted` on your Desktop (you can change where). "Only keep images and videos" is on by default, so you get just the wallpaper, not its shaders and scripts.
+Compressed, LZ4-packed and animated textures are all handled. Details are in [docs/FORMAT.md](https://github.com/uKeps/wallpaper-engine-extractor/blob/master/docs/FORMAT.md).
 
-Web-type wallpapers show up in the list but can't be extracted, they don't have a fixed asset to pull.
+## FAQ
 
-## Windows warnings
+#### Where are my files?
 
-The exe isn't code signed (a certificate costs money every year, hard to justify for a free tool), so Windows treats it as coming from an unknown publisher.
+In `Wallpaper Extracted` on your Desktop, one folder per wallpaper, named after its title. Click **Open folder** after extracting to jump straight there.
 
-- **Blue "Windows protected your PC" screen:** click **More info → Run anyway**.
-- **Blocked by Smart App Control, no "run anyway" option** (some Windows 11 installs): run from source instead, see [below](#running-from-source). Don't disable Smart App Control for this, turning it back on means reinstalling Windows.
+#### Why do I get several images instead of one?
 
-Each release ships a `checksums.txt` to verify the download: `Get-FileHash WallpaperExtractor.exe -Algorithm SHA256`.
+A scene wallpaper is built from layers: a background, plus things like rain, particles or a character drawn on top. Wallpaper Engine combines and animates them live. The extractor gives you each layer as its own image. The background is usually the largest file. The live effects can't be saved as a picture, so record your screen if you want the animated version.
 
-## Running from source
+#### Does it work on web or application wallpapers?
 
-Needed for the CLI, on Linux, or when the exe is blocked. Requires [Python 3.10+](https://www.python.org/downloads/) (check "Add Python to PATH" during install).
+No. They show up in the list but can't be extracted. A web wallpaper is a web page and an application wallpaper is a program, so neither has an image or video file to pull out. Scene and video wallpapers both work.
+
+#### Do I need to own Wallpaper Engine?
+
+Yes. The extractor reads wallpapers that Wallpaper Engine has already downloaded through the Steam Workshop. Subscribe to a wallpaper first, then it shows up under **Find in Steam**.
+
+#### Is it safe? Windows says it "protected my PC"
+
+The exe isn't code signed. Signing costs money every year, which is hard to justify for a free tool. Because of that, Windows shows a warning for any new download from an unknown publisher.
+
+- **"Windows protected your PC" (blue screen):** click **More info**, then **Run anyway**.
+- **Blocked by Smart App Control with no "Run anyway" button** (some Windows 11 PCs): [run it from source](#run-from-source-linux-macos-command-line) instead. Don't turn Smart App Control off for this: on many PCs it can't be turned back on without reinstalling Windows.
+
+The exe is built from this repository's source by GitHub Actions. Each release includes a `checksums.txt` so you can check that your download matches: run `Get-FileHash WallpaperExtractor.exe` in PowerShell and compare the hash.
+
+#### Does it work on Linux or macOS?
+
+There's no Linux or macOS download, but the app runs from source on both ([see below](#run-from-source-linux-macos-command-line)). **Find in Steam** checks the usual Steam folders on Linux, including Flatpak Steam, and on macOS.
+
+#### How is this different from RePKG?
+
+[RePKG](https://github.com/notscuffed/repkg) is the command-line tool this project's texture decoding is modeled on. This app is a standalone reimplementation with a window, Steam auto-detection and a one-click extract, so you don't need to download RePKG or use a terminal.
+
+## Run from source (Linux, macOS, command line)
+
+You need [Python 3.10+](https://www.python.org/downloads/). On Windows, check "Add Python to PATH" during install. On Linux, the window also needs your distro's Tk package (`python3-tk` on Debian/Ubuntu); the command line works without it.
 
 ```bash
 git clone https://github.com/uKeps/wallpaper-engine-extractor.git
 cd wallpaper-engine-extractor
-pip install -r requirements.txt   # optional, see below
-python main.py                    # opens the GUI
+pip install -r requirements.txt   # optional
+python main.py                    # opens the app
 ```
 
-`pip install` is optional. Without it everything still extracts: textures that need decoding are saved as BMP instead of PNG (slower, a few seconds for a large one), animated textures come out as the sprite sheet without the `.gif`, and drag & drop is disabled.
+`pip install` is optional. Without it, extraction still works, but decoded textures are saved as BMP instead of PNG, there's no `.gif` for animated textures, no thumbnails in the Steam list, and no drag and drop.
 
-### CLI
+<details>
+<summary><b>Command line</b></summary>
 
 ```bash
-# list installed wallpapers (title, ID, type, asset path)
-python main.py --list-wallpapers
-
-# extract, outputs to scene_extracted/ next to the .pkg
-python main.py "path/to/scene.pkg"
-
-# custom output folder
-python main.py "path/to/scene.pkg" -o "C:/Users/YourName/Desktop/output"
-
-# a standalone .tex file or a video wallpaper works the same way
-python main.py "path/to/texture.tex" -o out
-python main.py "path/to/video.mp4" -o out
-
-# a folder: every wallpaper under it, each into its own subfolder named after its title
-python main.py "C:/Program Files (x86)/Steam/steamapps/workshop/content/431960" -o out
+python main.py --list-wallpapers                    # installed wallpapers: title, ID, type, file
+python main.py "path/to/scene.pkg"                  # output goes to scene_extracted/ next to the .pkg
+python main.py "path/to/scene.pkg" -o out           # choose the output folder
+python main.py "path/to/texture.tex" -o out         # a single .tex, or an .mp4/.webm, works the same way
+python main.py ".../workshop/content/431960" -o out # a whole folder: one subfolder per wallpaper
 ```
 
-```
-positional arguments:
-  input                 Path to a scene.pkg, a .tex file, a video wallpaper (.mp4/.webm), or a folder
-                        (every wallpaper found under it is extracted into its own subfolder)
-
-options:
-  -h, --help            Show this help message and exit
-  -o, --output PATH     Output directory (default: <name>_extracted next to a .pkg or folder,
-                        the input's own folder for a .tex or video)
-  --no-tex-convert      Keep .tex files as they are instead of converting them to images
-  --all-mipmaps         Extract all mipmap levels, not just the highest resolution
-  --no-cleanup          Keep all extracted files (shaders, JSON, scripts, etc.)
-  --gui                 Force launch the GUI even when arguments are provided
-  --list-wallpapers     List installed Wallpaper Engine Steam Workshop wallpapers and exit
-```
-
-## Where the files live
-
-You normally don't need this, auto-detection finds them. But if you want to look manually:
-
-```
-C:\Program Files (x86)\Steam\steamapps\workshop\content\431960\<wallpaper_ID>\
-```
-
-| File | What it is |
+| Option | What it does |
 |---|---|
-| `scene.pkg` | Package with the wallpaper's assets |
-| `preview.jpg` | Preview thumbnail |
-| `project.json` | Wallpaper metadata |
+| `-o, --output PATH` | Output folder. Default: `<name>_extracted` next to a `.pkg` or folder, and the input's own folder for a `.tex` or video |
+| `--no-tex-convert` | Keep `.tex` files as they are |
+| `--all-mipmaps` | Save every mipmap size, not just the largest |
+| `--no-cleanup` | Keep shaders, JSON, scripts and other non-image files |
+| `--gui` | Open the app even when arguments are given |
+| `--list-wallpapers` | List installed Wallpaper Engine wallpapers and exit |
 
-## How it works
+</details>
 
-**`.pkg`**: binary archive. A version string (`PKGV0024`-style), a uint32 file count, then entries (name, offset, size), then all file data concatenated.
-
-**`.tex`**: a `TEXV` version tag, then `TEXI` (pixel format, flags, padded texture size and real image size), then a `TEXB` container (`TEXB0001` to `TEXB0004`) with one or more images, each a list of mipmaps. Mipmaps are either raw pixels in the `TEXI` format (DXT1/3/5, RGBA8888, RG88, R8), often LZ4-compressed, or a complete embedded file (PNG, JPG, MP4). Animated textures add a `TEXS` section describing frames on a sprite sheet. The output is cropped from the padded texture to the real image size.
-
-**Video**: no `.pkg` involved, the `.mp4`/`.webm` already sits loose in the Workshop folder. "Extracting" is just a copy.
-
-## Building the executable
-
-```powershell
-.\build.ps1
-```
-
-Installs PyInstaller if needed, writes `dist\WallpaperExtractor.exe` (~17 MB, single file, no console). Python, Tk, Pillow and the `tkdnd` Tcl package all get bundled in.
-
-Pushing a `v*` tag builds it on GitHub Actions and attaches the exe plus `checksums.txt` to the release (`.github/workflows/build.yml`). Can also be run manually from the Actions tab.
-
-Builds are unsigned. [SignPath Foundation](https://signpath.org/) gives free signing certs to open source projects that build in public CI, that's the only route that clears SmartScreen and Smart App Control without paying yearly.
+To contribute or build the exe, see [CONTRIBUTING.md](https://github.com/uKeps/wallpaper-engine-extractor/blob/master/CONTRIBUTING.md).
 
 ## Disclaimer
 
-For personal use, like recovering the image of a wallpaper you already own. Respect creators' copyright, don't redistribute extracted assets without permission.
+For personal use, like saving the picture of a wallpaper you're subscribed to. Wallpapers belong to their creators. Don't redistribute extracted files without the creator's permission.
 
 ## License
 
-[MIT](LICENSE) © uKeps
+[MIT](https://github.com/uKeps/wallpaper-engine-extractor/blob/master/LICENSE) © uKeps
