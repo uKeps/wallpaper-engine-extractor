@@ -31,7 +31,7 @@ jobs:
       - name: Test without optional dependencies
         run: |
           python -m unittest discover -s tests
-          python -c "import src.gui, src.wallpaper_browser"
+          python -c "import wallpaper_engine_extractor.gui, wallpaper_engine_extractor.wallpaper_browser"
 
   build:
     runs-on: windows-latest

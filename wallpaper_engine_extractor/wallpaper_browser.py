@@ -4,8 +4,8 @@ import threading
 import tkinter as tk
 from tkinter import ttk
 
-from src.steam_finder import find_installed_wallpapers
-from src.theme import (
+from wallpaper_engine_extractor.steam_finder import find_installed_wallpapers
+from wallpaper_engine_extractor.theme import (
     BG_COLOR, BORDER_COLOR, FONT, PRIMARY_COLOR, SURFACE_COLOR, TEXT_COLOR, TEXT_MUTED, ModernButton,
 )
 

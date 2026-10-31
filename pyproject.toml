@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wallpaper-engine-extractor"
+dynamic = ["version"]
+description = "Extract Wallpaper Engine scene.pkg files and convert .tex textures to PNG, with a GUI and a CLI."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+keywords = ["wallpaper engine", "repkg", "scene.pkg", "tex to png"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Graphics :: Graphics Conversion",
+]
+
+[project.optional-dependencies]
+full = ["pillow>=10.0.0", "tkinterdnd2>=0.4.2"]
+
+[project.scripts]
+wallpaper-engine-extractor = "wallpaper_engine_extractor.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/uKeps/wallpaper-engine-extractor"
+Issues = "https://github.com/uKeps/wallpaper-engine-extractor/issues"
+Releases = "https://github.com/uKeps/wallpaper-engine-extractor/releases"
+
+# Single source of truth: the version embedded in the Windows exe.
+[tool.hatch.version]
+path = "assets/version_info.txt"
+pattern = 'StringStruct\("ProductVersion", "(?P<version>\d+\.\d+\.\d+)'

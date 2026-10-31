@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
-from src.tex_parser import extract_tex_file
+from wallpaper_engine_extractor.tex_parser import extract_tex_file
 
 
 @dataclass
