@@ -1,6 +1,7 @@
 """Detects Wallpaper Engine wallpapers installed via Steam Workshop."""
 
 import json
+import os
 import platform
 import re
 from dataclasses import dataclass
@@ -61,17 +62,20 @@ def _default_steam_paths() -> list[Path]:
         return [Path("C:/Program Files (x86)/Steam"), Path("C:/Program Files/Steam")]
     if system == "Darwin":
         return [home / "Library/Application Support/Steam"]
+    data_home = Path(os.environ.get("XDG_DATA_HOME") or home / ".local/share")
     return [
-        home / ".steam/steam",
-        home / ".local/share/Steam",
-        home / ".var/app/com.valvesoftware.Steam/data/Steam",
+        home / ".steam/steam",  # usually a symlink to the next one; callers dedupe by resolved path
+        data_home / "Steam",
+        home / ".var/app/com.valvesoftware.Steam/data/Steam",  # Flatpak
+        home / "snap/steam/common/.local/share/Steam",  # Snap
     ]
 
 
 def find_steam_install_paths() -> list[Path]:
-    """Find likely Steam installation directories, deduplicated."""
+    """Find likely Steam installation directories, deduplicated (symlinks resolved)."""
     found = []
     for path in _registry_steam_paths() + _default_steam_paths():
+        path = path.resolve()
         if path.is_dir() and path not in found:
             found.append(path)
     return found
@@ -99,7 +103,7 @@ def find_workshop_content_dirs() -> list[Path]:
     content_dirs = []
     for steam_path in find_steam_install_paths():
         for library in _parse_library_folders(steam_path):
-            content_dir = library / "steamapps" / "workshop" / "content" / WALLPAPER_ENGINE_APP_ID
+            content_dir = (library / "steamapps" / "workshop" / "content" / WALLPAPER_ENGINE_APP_ID).resolve()
             if content_dir.is_dir() and content_dir not in content_dirs:
                 content_dirs.append(content_dir)
     return content_dirs
