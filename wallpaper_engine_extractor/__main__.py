@@ -48,7 +48,9 @@ def extract_one(input_path: Path, output_dir: Path | None, args) -> Path:
 def package_version() -> str:
     """The version_info.txt next to the sources (checkout, exe), else the installed metadata (wheel)."""
     try:
-        text = (Path(__file__).resolve().parent.parent / "assets" / "version_info.txt").read_text()
+        text = (Path(__file__).resolve().parent.parent / "assets" / "version_info.txt").read_text(
+            encoding="utf-8", errors="replace"
+        )
         return re.search(r'"ProductVersion", "(\d+\.\d+\.\d+)', text).group(1)
     except (OSError, AttributeError):
         pass
@@ -80,6 +82,9 @@ def find_wallpaper_assets(directory: Path) -> tuple[list[tuple[Path, Path]], lis
 
 def run_cli(args):
     """Execute the extraction in CLI mode."""
+    if not args.input or not args.input.strip():
+        print("Error: Input path cannot be empty.")
+        sys.exit(1)
     input_path = Path(args.input).resolve()
     output_dir = Path(args.output) if args.output else None
 
@@ -149,6 +154,20 @@ def list_installed_wallpapers():
         print(f"    {location}")
 
 
+def _launch_gui():
+    try:
+        from wallpaper_engine_extractor.gui import main as launch_gui
+    except ImportError as e:
+        if e.name in ("tkinter", "_tkinter") or "tkinter" in str(e).lower():
+            print(
+                "Error: Tkinter is not installed, so the window cannot open "
+                "(on Debian/Ubuntu, install python3-tk). Pass a file or folder to use the CLI, or run with --help."
+            )
+            sys.exit(1)
+        raise
+    launch_gui()
+
+
 def main():
     # Avoid crashes when workshop titles contain characters outside the console's codepage
     if hasattr(sys.stdout, "reconfigure"):
@@ -156,8 +175,7 @@ def main():
 
     # If no arguments are provided, default to launching the GUI
     if len(sys.argv) == 1:
-        from wallpaper_engine_extractor.gui import main as launch_gui
-        launch_gui()
+        _launch_gui()
         return
 
     # CLI Arguments Parser
@@ -207,9 +225,8 @@ def main():
         list_installed_wallpapers()
         return
 
-    if args.gui or not args.input:
-        from wallpaper_engine_extractor.gui import main as launch_gui
-        launch_gui()
+    if args.gui or args.input is None:
+        _launch_gui()
     else:
         run_cli(args)
 

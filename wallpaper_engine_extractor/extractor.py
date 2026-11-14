@@ -150,8 +150,21 @@ def _vec(v, n: int) -> list[float] | None:
 
 def _scene_main_texture(root: Path, sizes: dict[Path, tuple[int, int]]) -> Path | None:
     """The .tex of the bottom-most scene.json image layer that covers the screen, else of the largest layer."""
+    json_by_rel = {p.relative_to(root).as_posix().casefold(): p for p in root.rglob("*.json") if p.is_file()}
+    sizes_by_rel = {t.relative_to(root).as_posix().casefold(): t for t in sizes if t.is_relative_to(root)}
+
     def load(rel) -> dict:
-        data = json.loads((root / rel).read_text(encoding="utf-8-sig", errors="replace"))
+        if not isinstance(rel, str):
+            return {}
+        norm = rel.replace("\\", "/").lstrip("/")
+        path = (root / norm).resolve()
+        if not path.is_relative_to(root):
+            return {}
+        if not path.is_file():
+            path = json_by_rel.get(norm.casefold())
+            if path is None:
+                return {}
+        data = json.loads(path.read_text(encoding="utf-8-sig", errors="replace"))
         return data if isinstance(data, dict) else {}
 
     scene = load("scene.json")
@@ -166,10 +179,20 @@ def _scene_main_texture(root: Path, sizes: dict[Path, tuple[int, int]]) -> Path 
             continue
         try:
             material = load(load(obj["image"])["material"])
-            tex = (root / "materials" / f"{material['passes'][0]['textures'][0]}.tex").resolve()
+            tex_ref = material["passes"][0]["textures"][0]
+            if not isinstance(tex_ref, str) or not tex_ref:
+                continue
+            tex_rel = tex_ref.replace("\\", "/").lstrip("/")
+            if not tex_rel.lower().endswith(".tex"):
+                tex_rel += ".tex"
+            if not tex_rel.lower().startswith("materials/"):
+                tex_rel = f"materials/{tex_rel}"
+            tex = (root / tex_rel).resolve()
+            if tex not in sizes:
+                tex = sizes_by_rel.get(tex_rel.casefold())
         except (OSError, ValueError, LookupError, TypeError):
             continue  # e.g. a model from Wallpaper Engine's own assets, not in this package
-        if tex not in sizes:
+        if tex is None or tex not in sizes:
             continue
         size = _vec(obj.get("size"), 2)
         if not size or not all(size):
@@ -254,8 +277,10 @@ def extract_package(
     
     # 1. Extract raw files from the package
     with open(pkg_path, "rb") as pkg_file:
+        pkg_size = os.fstat(pkg_file.fileno()).st_size
         for i, file_entry in enumerate(info.files):
-            file_path = (base_path / file_entry.name).resolve()
+            entry_name = file_entry.name.replace("\\", "/")
+            file_path = (base_path / entry_name).resolve()
             if not file_path.is_relative_to(base_path) or file_path == base_path:
                 log(f"Skipping unsafe path in package: {file_entry.name}")
                 continue
@@ -266,6 +291,8 @@ def extract_package(
             file_path.parent.mkdir(parents=True, exist_ok=True)
             
             log(f"[{i+1}/{len(info.files)}] Extracting: {file_entry.name}")
+            if info.data_offset + file_entry.offset + file_entry.length > pkg_size:
+                raise ValueError(f"{PACKAGE_ERROR}: {file_entry.name} is cut off")
             pkg_file.seek(info.data_offset + file_entry.offset)
             data = pkg_file.read(file_entry.length)
             if len(data) < file_entry.length:

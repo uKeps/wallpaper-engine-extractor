@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -136,6 +137,36 @@ class PackageTest(unittest.TestCase):
         self.assertEqual(info.root, "PKGV0024")
         self.assertEqual([f.name for f in info.files], list(ENTRIES))
 
+    def test_backslash_entry_names_and_mixed_case_scene_paths(self):
+        entries = scene_pkg_entries(scene=json.dumps({
+            "general": {"orthogonalprojection": {"width": 128, "height": 64}},
+            "objects": [
+                {"image": "Models\\character.json", "size": "100 100", "scale": "0.5 0.5"},
+                {"image": "Models\\Sky.json", "scale": "1 1"},
+            ],
+        }).encode())
+        # Rewrite keys with backslashes and mixed case to simulate Windows-created packages on Linux
+        entries = {
+            "scene.json": entries["scene.json"],
+            "models\\sky.json": json.dumps({"material": "Materials\\Sky.json"}).encode(),
+            "materials\\sky.json": json.dumps({"passes": [{"textures": ["Sky"]}]}).encode(),
+            "models\\character.json": entries["models/character.json"],
+            "materials\\character.json": entries["materials/character.json"],
+            "materials\\sky.tex": entries["materials/sky.tex"],
+            "materials\\character.tex": entries["materials/character.tex"],
+        }
+        self.extract_scene(entries)
+        self.assertTrue((self.out / "materials/sky.bmp").is_file())
+        self.assertEqual((self.out / "Night Sky.bmp").read_bytes(), (self.out / "materials/sky.bmp").read_bytes())
+
+    def test_oversized_entry_length_raises_before_read(self):
+        raw = bytearray(pkg_bytes({"a.txt": b"hi"}))
+        # Header: 4 (root len) + 8 ("PKGV0024") + 4 (count) + 4 (name len) + 5 ("a.txt") + 4 (offset) = 29
+        struct.pack_into("<I", raw, 29, 0x7FFFFFFF)
+        self.pkg.write_bytes(bytes(raw))
+        with self.assertRaisesRegex(ValueError, "is cut off"):
+            extract_package(self.pkg, self.out, log_callback=self.logs.append)
+
 
 class FolderTest(unittest.TestCase):
     def setUp(self):
@@ -253,6 +284,22 @@ class FolderTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("does not exist", result.stdout)
 
+    def test_cli_empty_input_is_rejected(self):
+        result = self.run_cli("")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("cannot be empty", result.stdout)
+
+    def test_cli_missing_tkinter_shows_helpful_error(self):
+        code = (
+            "import sys; sys.modules['tkinter'] = None; "
+            "from wallpaper_engine_extractor.__main__ import main; "
+            "sys.argv = ['wallpaper-engine-extractor']; main()"
+        )
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=ROOT)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("python3-tk", result.stdout)
+        self.assertIn("--help", result.stdout)
+
 
 class SteamFinderTest(unittest.TestCase):
     def setUp(self):
@@ -293,6 +340,50 @@ class SteamFinderTest(unittest.TestCase):
         self.steam(self.home / "snap/steam/common/.local/share/Steam", "222")
         self.steam(self.home / ".var/app/com.valvesoftware.Steam/data/Steam", "333")
         self.assertEqual(self.ids(), ["111", "222", "333"])
+
+    def test_malformed_project_json_fields_and_traversal_do_not_crash(self):
+        root = self.home / ".local/share/Steam"
+        self.steam(root, "111")
+        bad = root / "steamapps/workshop/content/431960/111"
+        (bad / "project.json").write_text(json.dumps({
+            "title": 123, "type": ["scene"], "file": {"nested": True}, "preview": 999
+        }))
+        self.steam(root, "222")
+        traversal = root / "steamapps/workshop/content/431960/222"
+        (traversal / "project.json").write_text(json.dumps({
+            "title": "Bad", "type": "scene", "file": "../111/evil.pkg", "preview": "C:\\Windows\\win.ini"
+        }))
+        (root / "steamapps/workshop/content/431960/111/evil.pkg").write_bytes(b"x")
+        found = {wp.workshop_id: wp for wp in steam_finder.find_installed_wallpapers()}
+        self.assertEqual(sorted(found), ["111", "222"])
+        self.assertEqual((found["111"].title, found["111"].wp_type), ("111", "unknown"))
+        self.assertIsNone(found["222"].asset_path)
+        self.assertIsNone(found["222"].preview_path)
+
+    def test_case_insensitive_asset_lookup_and_unreadable_library(self):
+        root = self.home / ".local/share/Steam"
+        self.steam(root, "111")
+        scene = root / "steamapps/workshop/content/431960/111"
+        (scene / "project.json").write_text(json.dumps({"title": "S", "file": "Scene.PKG", "preview": "Preview.JPG"}))
+        (scene / "scene.pkg").write_bytes(b"pkg")
+        (scene / "preview.jpg").write_bytes(b"jpg")
+
+        self.steam(root, "222")
+        video = root / "steamapps/workshop/content/431960/222"
+        (video / "project.json").write_text(json.dumps({"title": "V", "type": "video"}))
+        (video / "CLIP.MP4").write_bytes(b"mp4")
+
+        w1 = steam_finder.wallpaper_from_folder(scene)
+        w2 = steam_finder.wallpaper_from_folder(video)
+        self.assertEqual(w1.pkg_path, scene / "scene.pkg")
+        self.assertEqual(w1.preview_path, scene / "preview.jpg")
+        self.assertEqual(w2.video_path, video / "CLIP.MP4")
+
+        bad_dir = mock.MagicMock(spec=Path)
+        bad_dir.iterdir.side_effect = PermissionError("denied")
+        good_dir = root / "steamapps/workshop/content/431960"
+        with mock.patch.object(steam_finder, "find_workshop_content_dirs", return_value=[bad_dir, good_dir]):
+            self.assertEqual(self.ids(), ["111", "222"])
 
 
 if __name__ == "__main__":

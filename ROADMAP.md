@@ -2,14 +2,14 @@
 
 ## Now
 <!-- In progress. At most 3. Each names its branch/PR when it has one. -->
-- [ ] N1 — v1.2.0: main image copy (#11) and Linux paths / CLI messages (#10) — next step: merge #10, then #11, then bump `assets/version_info.txt` to 1.2.0 and push the `v1.2.0` tag
+- [ ] N1 — v1.2.0 release — next step: configure PyPI trusted publisher (`pypi` environment in GitHub repo settings + pending publisher on pypi.org for `publish.yml`), then bump all 4 version fields in `assets/version_info.txt` to `1.2.0` in a PR and push the `v1.2.0` tag
 
 ## Next
 <!-- Ordered; the top item is what starts when Now frees up. At most 10. -->
-1. PyPI trusted publisher: add the pending publisher on pypi.org (workflow `publish.yml`, environment `pypi`) and create the `pypi` environment in repo settings — why: without it the tag's publish job fails (the exe release is unaffected)
+1. README PyPI install section: document `pipx install wallpaper-engine-extractor[full]` (and base install without `[full]`) once `v1.2.0` is live on PyPI — why: `#9` packaged for PyPI and `D1` refers to `pipx`, while the README still only shows `git clone`
 2. winget: write portable manifests for 1.2.0 (`uKeps.WallpaperEngineExtractor`) and submit to microsoft/winget-pkgs — why: no Wallpaper Engine extractor is on winget; Windows is the main audience
 3. AUR: `wallpaper-engine-extractor` PKGBUILD built with python-build/python-installer from the release tarball — why: empty niche, low effort
-4. Batch extraction in the GUI: multi-select, search, type filter, skip already extracted — why: every competitor GUI with over 2k downloads has it
+4. Batch extraction in the GUI: multi-select, type filter (`scene`/`video`), skip already extracted, duplicate-title collision handling — why: `Find in Steam` already has search, and every competitor GUI with over 2k downloads has batch mode
 5. Demo GIF in the README (Find in Steam → Extract → Open folder) — why: search visitors decide on the first screen
 6. AlternativeTo listing as a RePKG alternative — why: discovery outside GitHub search
 
@@ -17,9 +17,10 @@
 <!-- Known problems we are living with. Never deleted silently: fixed, or moved to Done. -->
 | ID | Problem | Risk if ignored | Fix idea |
 |----|---------|-----------------|----------|
-| D1 | The exe is built windowed, so CLI arguments passed to it print nothing (`--version`, `--list-wallpapers`) | Users of the winget command alias think the CLI is broken | Keep docs saying the CLI is from source/pipx; or `AttachConsole` on Windows when args are given |
+| D1 | The exe is built windowed (`console=False`, `sys.stdout`/`sys.stderr` are `None`), so CLI arguments passed to it print nothing (`--version`, `--list-wallpapers`) and dragging files onto the exe runs headless with no error popup | Users of the winget command alias or drag-onto-exe think the app is broken | Keep docs saying the CLI is from source/pipx; or `AttachConsole` + reopen `CONOUT$` / ship a separate console shim |
 | D2 | Main image is picked heuristically (first full-screen layer in scene.json, else largest texture) | Scenes built from partial layers, puppets or video backgrounds get the wrong or no main image | Compose image layers from scene.json (position, scale, alpha), roughly 12–20h |
 | D3 | Unsigned PyInstaller onefile exe | Defender/SmartScreen false positives, manual review on winget | See O1 |
+| D4 | `WallpaperBrowserDialog` decodes all preview thumbnails before showing the list, and `gui.py` / `wallpaper_browser.py` have no automated GUI tests | Slow startup on Workshop libraries with 500+ items; GUI regressions rely on manual checks | Lazy/incremental thumbnail decoding in batches; add Tk smoke tests where `$DISPLAY` is available |
 
 ## Decisions pending
 <!-- Questions only a human can settle. Each states the options and a recommendation. -->
@@ -27,7 +28,6 @@
 
 ## Ideas
 <!-- Suggestions not yet committed to. Cheap to add, cheap to drop. -->
-- Layer composition for the main image — value: fixes D2 for most scenes
 - Export as an editable project (project.json, preview, `.tex-json`) — value: creators and modders, RePKG `-c` parity
 - Output folders by author/title plus `metadata.json` — value: people backing up their library
 - `.mpkg` (mobile) packages — value: low; their ETC textures aren't decoded by any tool yet
@@ -37,6 +37,8 @@
 
 ## Done (recent)
 <!-- Last ~10 items, newest first, each with its PR/commit. Older ones: delete; git has them. -->
+- 2026-10-31 — Save a copy of the scene's main image at the top of the output folder (#11)
+- 2026-10-31 — Fix Linux Steam paths (Snap, `XDG_DATA_HOME`, symlink dedup), report skipped web/application wallpapers, convert loose `.tex` folders, and add `--version` (#10)
 - 2026-10-30 — Installable from PyPI as `wallpaper-engine-extractor`; package renamed from `src` (#9)
 - 2026-10-30 — README rewritten for end users, format notes moved to docs/FORMAT.md (#8)
 - 2026-10-29 — Repo description, topics and homepage set for search (`gh repo edit`, no PR)

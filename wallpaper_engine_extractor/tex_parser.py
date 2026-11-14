@@ -460,8 +460,13 @@ def _save_gif(info: TexInfo, path: Path) -> Path:
         # Rotated frames store their size in height_x/width_y instead of width/height.
         width = f.width if f.width != 0 else f.height_x
         height = f.height if f.height != 0 else f.width_y
+        if not all(math.isfinite(v) for v in (f.x, f.y, width, height, f.frametime)) or not 0 <= f.frametime <= 655:
+            raise ValueError("Corrupt GIF frame metadata")
+        crop_w, crop_h = int(abs(width)), int(abs(height))
+        if crop_w == 0 or crop_h == 0:
+            raise ValueError("Corrupt GIF frame with zero size")
         x, y = int(min(f.x, f.x + width)), int(min(f.y, f.y + height))
-        frame = sheets[f.image_id].crop((x, y, x + int(abs(width)), y + int(abs(height))))
+        frame = sheets[f.image_id].crop((x, y, x + crop_w, y + crop_h))
         # Quarter turns, clockwise like RePKG's ImageSharp Rotate; Pillow rotates counter-clockwise.
         angle = math.atan2((height > 0) - (height < 0), (width > 0) - (width < 0))
         degrees = round(-(angle - math.pi / 4) * 180 / math.pi)
