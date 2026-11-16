@@ -2,7 +2,7 @@
 
 ## Now
 <!-- In progress. At most 3. Each names its branch/PR when it has one. -->
-- [ ] N1 — v1.2.0: main image copy (#11) and Linux paths / CLI messages (#10) — next step: merge #10, then #11, then bump `assets/version_info.txt` to 1.2.0 and push the `v1.2.0` tag
+- [ ] N1 — v1.2.0: Windows network path fix (`fix/unc-paths`) — next step: merge it, then bump `assets/version_info.txt` to 1.2.0 and push the `v1.2.0` tag
 
 ## Next
 <!-- Ordered; the top item is what starts when Now frees up. At most 10. -->
@@ -37,6 +37,8 @@
 
 ## Done (recent)
 <!-- Last ~10 items, newest first, each with its PR/commit. Older ones: delete; git has them. -->
+- 2026-10-31 — Main image copied to the top of a scene's output folder (#11)
+- 2026-10-31 — Linux: each wallpaper listed once, Snap and XDG_DATA_HOME Steam found; CLI reports skipped web/application wallpapers, `--version` (#10)
 - 2026-10-30 — Installable from PyPI as `wallpaper-engine-extractor`; package renamed from `src` (#9)
 - 2026-10-30 — README rewritten for end users, format notes moved to docs/FORMAT.md (#8)
 - 2026-10-29 — Repo description, topics and homepage set for search (`gh repo edit`, no PR)
