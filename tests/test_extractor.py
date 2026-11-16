@@ -137,6 +137,13 @@ class PackageTest(unittest.TestCase):
         scene["objects"][:0] = objects
         return scene_pkg_entries(scene=json.dumps(scene).encode())
 
+    def test_main_image_skips_tiny_stretched_layers(self):
+        entries = self.scene_with({"image": "models/dot.json", "size": "128 64"})  # an 8x8 backdrop
+        entries["models/dot.json"] = json.dumps({"material": "materials/dot.json"}).encode()
+        entries["materials/dot.json"] = json.dumps({"passes": [{"textures": ["dot"]}]}).encode()
+        self.extract_scene(entries)
+        self.assertEqual((self.out / "Night Sky.bmp").read_bytes(), (self.out / "materials/sky.bmp").read_bytes())
+
     def test_scene_paths_outside_the_package_are_ignored(self):
         # On Windows "//host/share/model.json" replaces the folder, and opening it sends the login hash to that host
         outside = self.tmp / "outside.json"

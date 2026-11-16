@@ -181,8 +181,8 @@ def _scene_main_texture(root: Path, sizes: dict[Path, tuple[int, int]]) -> Path 
             tex = _inside(root / "materials", f"{material['passes'][0]['textures'][0]}.tex")
         except (OSError, ValueError, LookupError, TypeError):
             continue  # e.g. a model from Wallpaper Engine's own assets, not in this package
-        if tex not in sizes:
-            continue
+        if tex not in sizes or sizes[tex][0] * sizes[tex][1] < MIN_MAIN_IMAGE_AREA:
+            continue  # not in the package, or a tiny texture stretched into a backdrop
         size = _vec(obj.get("size"), 2)
         if not size or not all(size):
             size = sizes[tex]
