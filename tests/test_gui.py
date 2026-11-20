@@ -16,9 +16,10 @@ from wallpaper_engine_extractor import gui  # noqa: E402
 class MainWindowTests(unittest.TestCase):
     def setUp(self):
         try:
-            self.app = gui.App()
+            tk.Tk().destroy()
         except tk.TclError as e:
             self.skipTest(f"no display: {e}")
+        self.app = gui.App()  # any other Tk error fails the test
         self.app.withdraw()
         self.addCleanup(self.app.destroy)
         tmp = tempfile.TemporaryDirectory()
@@ -29,11 +30,11 @@ class MainWindowTests(unittest.TestCase):
         (self.folder / "project.json").write_text(json.dumps({"title": "Night Sky", "type": "scene"}))
 
     def test_extract_is_enabled_only_once_a_wallpaper_is_picked(self):
-        self.assertEqual(str(self.app.btn_run["state"]), "disabled")
+        self.assertEqual(self.app.btn_run.variant, "disabled")
         self.app.set_input(self.folder)
         self.assertEqual(self.app.input_path_var.get(), str(self.folder / "scene.pkg"))
         self.assertEqual(self.app.input_title["text"], "Night Sky")
-        self.assertEqual(str(self.app.btn_run["state"]), "normal")
+        self.assertEqual(self.app.btn_run.variant, "primary")
 
     def test_failure_opens_the_log_and_success_offers_the_folder(self):
         self.app.set_input(self.folder)

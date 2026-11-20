@@ -27,6 +27,7 @@
 - O1 — Code signing — options: apply to SignPath Foundation (free for OSS built in public CI) / stay unsigned with published checksums — recommend: apply after v1.2.0 ships, because winget and AV friction grow with reach
 
 ## Ideas
+- Check #14 on a real Windows machine at 100% and 150% scaling, light and dark — value: DPI awareness and the DWM title bar were only exercised by CI, never looked at
 <!-- Suggestions not yet committed to. Cheap to add, cheap to drop. -->
 - Skip already-extracted wallpapers unless `--overwrite` (RePKG `--overwrite`) — value: re-running on a library doesn't redo everything
 - `--only` / `--ignore` extension filters (RePKG `-e`/`-i`) — value: modders who want shaders or models only
@@ -39,7 +40,7 @@
 
 ## Done (recent)
 <!-- Last ~10 items, newest first, each with its PR/commit. Older ones: delete; git has them. -->
-- 2026-11-20 — Main window: only the next step is highlighted, preview of the picked wallpaper, log behind "Details" (opens on failure), settings moved to the footer, flat checkbox; first Tk smoke tests (#14)
+- 2026-11-20 — New look: neutral zinc palette (follows the Windows light/dark setting), dashed drop zone, file card with preview and status, footer actions, log behind "Show log"; crisp on scaled Windows displays (DPI aware) with a dark title bar; first Tk smoke tests (#14)
 - 2026-11-20 — Path/GIF hardening, Steam scan survives unreadable drives, a file opened with the exe opens the window (#12)
 - 2026-11-20 — Never open a path from a wallpaper that leaves its folder (Windows UNC/NTLM leak), skip tiny stretched textures as the main image (#13)
 - 2026-10-31 — Save a copy of the scene's main image at the top of the output folder (#11)
