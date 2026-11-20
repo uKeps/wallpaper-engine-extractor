@@ -112,7 +112,7 @@ def find_workshop_content_dirs() -> list[Path]:
 def _find_preview(folder: Path, project: dict) -> Optional[Path]:
     preview_name = project.get("preview")
     if preview_name:
-        candidate = folder / preview_name
+        candidate = folder / Path(preview_name).name  # never a path elsewhere: on Windows a UNC one leaks the login
         if candidate.is_file():
             return candidate
     for ext in ("jpg", "jpeg", "png", "gif"):
@@ -125,7 +125,7 @@ def _find_preview(folder: Path, project: dict) -> Optional[Path]:
 def _find_pkg(folder: Path, project: dict) -> Optional[Path]:
     file_name = project.get("file")
     if file_name and file_name.lower().endswith(".pkg"):
-        candidate = folder / file_name
+        candidate = folder / Path(file_name).name  # see _find_preview
         if candidate.is_file():
             return candidate
     candidate = folder / "scene.pkg"
@@ -138,7 +138,7 @@ def _find_pkg(folder: Path, project: dict) -> Optional[Path]:
 def _find_video(folder: Path, project: dict) -> Optional[Path]:
     file_name = project.get("file")
     if file_name and file_name.lower().endswith((".mp4", ".webm")):
-        candidate = folder / file_name
+        candidate = folder / Path(file_name).name  # see _find_preview
         if candidate.is_file():
             return candidate
     for ext in ("mp4", "webm"):

@@ -131,6 +131,42 @@ class PackageTest(unittest.TestCase):
         self.assertEqual(len(paths), 4)  # the four converted textures, nothing at the top
         self.assertFalse((self.out / "Night Sky.bmp").exists())
 
+    def scene_with(self, *objects):
+        """scene_pkg_entries() with objects drawn under its layers."""
+        scene = json.loads(scene_pkg_entries()["scene.json"])
+        scene["objects"][:0] = objects
+        return scene_pkg_entries(scene=json.dumps(scene).encode())
+
+    def test_main_image_skips_tiny_stretched_layers(self):
+        entries = self.scene_with({"image": "models/dot.json", "size": "128 64"})  # an 8x8 backdrop
+        entries["models/dot.json"] = json.dumps({"material": "materials/dot.json"}).encode()
+        entries["materials/dot.json"] = json.dumps({"passes": [{"textures": ["dot"]}]}).encode()
+        self.extract_scene(entries)
+        self.assertEqual((self.out / "Night Sky.bmp").read_bytes(), (self.out / "materials/sky.bmp").read_bytes())
+
+    def test_scene_paths_outside_the_package_are_ignored(self):
+        # On Windows "//host/share/model.json" replaces the folder, and opening it sends the login hash to that host
+        outside = self.tmp / "outside.json"
+        outside.write_text(json.dumps({"material": "materials/character.json"}))
+        self.extract_scene(self.scene_with({"image": str(outside), "size": "128 64"}))
+        self.assertEqual((self.out / "Night Sky.bmp").read_bytes(), (self.out / "materials/sky.bmp").read_bytes())
+
+    def test_unc_names_are_never_resolved(self):
+        # On Windows resolve() opens the path, so it must not run on a name that leaves the output folder
+        entries = scene_pkg_entries()
+        entries["//evil.invalid/share/x.txt"] = b"x"
+        entries["materials/sky.json"] = json.dumps({"passes": [{"textures": ["//evil.invalid/share/t"]}]}).encode()
+        resolved, real_resolve = [], Path.resolve
+
+        def spy(path, *args, **kwargs):
+            resolved.append(str(path))
+            return real_resolve(path, *args, **kwargs)
+
+        with mock.patch.object(Path, "resolve", spy):
+            self.extract_scene(entries)
+        self.assertEqual([p for p in resolved if "evil" in p], [])
+        self.assertIn("Skipping unsafe path in package: //evil.invalid/share/x.txt", self.logs)
+
     def test_parse_package(self):
         info = parse_package(self.pkg)
         self.assertEqual(info.root, "PKGV0024")
@@ -169,6 +205,14 @@ class FolderTest(unittest.TestCase):
         info = wallpaper_from_folder(folder)
         self.assertEqual((info.title, info.asset_path, info.wp_type), ("Title", folder / "scene.pkg", "scene"))
         self.assertIsNone(wallpaper_from_folder(folder / "scene.pkg"))
+
+    def test_project_json_paths_stay_in_the_folder(self):
+        # On Windows a UNC "file" or "preview" (//host/share/x) would be checked over the network
+        outside = self.wallpaper("other", None, {"x.pkg": b"", "p.jpg": b""})
+        folder = self.wallpaper("123")
+        (folder / "project.json").write_text(json.dumps({"file": str(outside / "x.pkg"), "preview": str(outside / "p.jpg")}))
+        info = wallpaper_from_folder(folder)
+        self.assertEqual((info.pkg_path, info.preview_path), (None, None))
 
     def run_cli(self, *args):
         return subprocess.run([sys.executable, str(ROOT / "main.py"), *map(str, args)],

@@ -131,6 +131,18 @@ def _tex_size(tex_path: Path) -> tuple[int, int]:
         return (0, 0)
 
 
+def _inside(folder: Path, rel: str) -> Path:
+    """folder/rel without touching the disk, ValueError if it leaves folder.
+
+    On Windows an absolute or UNC rel (//host/share/x) replaces folder, and opening it sends the
+    user's login hash to that host.
+    """
+    path = Path(os.path.normpath(folder / rel))
+    if not path.is_relative_to(folder):
+        raise ValueError(f"{rel} is outside the package")
+    return path
+
+
 def _value(v):
     """Unwrap a value bound to a user property: {"user": "name", "value": ...}."""
     return v.get("value") if isinstance(v, dict) else v
@@ -151,7 +163,7 @@ def _vec(v, n: int) -> list[float] | None:
 def _scene_main_texture(root: Path, sizes: dict[Path, tuple[int, int]]) -> Path | None:
     """The .tex of the bottom-most scene.json image layer that covers the screen, else of the largest layer."""
     def load(rel) -> dict:
-        data = json.loads((root / rel).read_text(encoding="utf-8-sig", errors="replace"))
+        data = json.loads(_inside(root, rel).read_text(encoding="utf-8-sig", errors="replace"))
         return data if isinstance(data, dict) else {}
 
     scene = load("scene.json")
@@ -166,11 +178,11 @@ def _scene_main_texture(root: Path, sizes: dict[Path, tuple[int, int]]) -> Path 
             continue
         try:
             material = load(load(obj["image"])["material"])
-            tex = (root / "materials" / f"{material['passes'][0]['textures'][0]}.tex").resolve()
+            tex = _inside(root / "materials", f"{material['passes'][0]['textures'][0]}.tex")
         except (OSError, ValueError, LookupError, TypeError):
             continue  # e.g. a model from Wallpaper Engine's own assets, not in this package
-        if tex not in sizes:
-            continue
+        if tex not in sizes or sizes[tex][0] * sizes[tex][1] < MIN_MAIN_IMAGE_AREA:
+            continue  # not in the package, or a tiny texture stretched into a backdrop
         size = _vec(obj.get("size"), 2)
         if not size or not all(size):
             size = sizes[tex]
@@ -255,7 +267,10 @@ def extract_package(
     # 1. Extract raw files from the package
     with open(pkg_path, "rb") as pkg_file:
         for i, file_entry in enumerate(info.files):
-            file_path = (base_path / file_entry.name).resolve()
+            # resolve() only once the name stays inside: on Windows it opens the path (see _inside)
+            file_path = Path(os.path.normpath(base_path / file_entry.name))
+            if file_path.is_relative_to(base_path):
+                file_path = file_path.resolve()
             if not file_path.is_relative_to(base_path) or file_path == base_path:
                 log(f"Skipping unsafe path in package: {file_entry.name}")
                 continue
