@@ -6,7 +6,8 @@ from tkinter import ttk
 
 from wallpaper_engine_extractor.steam_finder import find_installed_wallpapers
 from wallpaper_engine_extractor.theme import (
-    BG_COLOR, BORDER_COLOR, FONT, PRIMARY_COLOR, SURFACE_COLOR, TEXT_COLOR, TEXT_MUTED, ModernButton,
+    BG_COLOR, BORDER_COLOR, STRONG_BORDER, SURFACE_COLOR, TEXT_COLOR, TEXT_MUTED, ModernButton, font, px,
+    style_title_bar,
 )
 
 try:
@@ -18,13 +19,13 @@ except ImportError:
 THUMB_SIZE = (96, 54)
 
 
-def _load_thumbnail(wp):
+def _load_thumbnail(wp, size=THUMB_SIZE):
     """Decode a preview off the UI thread; the Tk image is made later, on the main thread."""
     if not HAS_PILLOW or wp.preview_path is None:
         return None
     try:
         with Image.open(wp.preview_path) as image:
-            return ImageOps.fit(image.convert("RGB"), THUMB_SIZE)
+            return ImageOps.fit(image.convert("RGB"), size)
     except Exception:
         return None
 
@@ -35,21 +36,21 @@ class WallpaperBrowserDialog(tk.Toplevel):
     def __init__(self, master):
         super().__init__(master)
         self.title("Find in Steam")
-        w, h = 600, 560
+        w, h = px(600), px(560)
         rx, ry = master.winfo_rootx(), master.winfo_rooty()
         sw, sh = master.winfo_screenwidth(), master.winfo_screenheight()
         # Clamp only on the primary screen so multi-monitor setups aren't snapped away from `master`
         x = max(0, min(rx + 40, max(0, sw - w))) if 0 <= rx < sw else rx + 40
         y = max(0, min(ry + 40, max(0, sh - h - 40))) if 0 <= ry < sh else ry + 40
         self.geometry(f"{w}x{h}+{x}+{y}")
-        self.minsize(460, 360)
+        self.minsize(px(460), px(360))
         self.configure(bg=BG_COLOR)
         self.transient(master)
         self.grab_set()
         self.focus_set()
+        style_title_bar(self)
 
-        self.selected_asset_path = None
-        self.selected_title = None
+        self.selected = None  # the WallpaperInfo picked, if any
         self._rows = []  # (frame, wallpaper, PhotoImage kept alive, widgets to repaint)
         self._current = None
 
@@ -59,42 +60,40 @@ class WallpaperBrowserDialog(tk.Toplevel):
         threading.Thread(target=self._scan_worker, daemon=True).start()
 
     def _build_widgets(self):
-        main = tk.Frame(self, bg=BG_COLOR, padx=28, pady=24)
+        main = tk.Frame(self, bg=BG_COLOR, padx=px(28), pady=px(24))
         main.pack(fill="both", expand=True)
 
-        tk.Label(main, text="Find in Steam", font=(FONT, 16, "bold"), bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor="w")
+        tk.Label(main, text="Find in Steam", font=font(14, "semibold"), bg=BG_COLOR, fg=TEXT_COLOR).pack(anchor="w")
         self.status_label = tk.Label(
             main, text="Wallpapers you are subscribed to on the Steam Workshop.",
-            font=(FONT, 10), bg=BG_COLOR, fg=TEXT_MUTED
+            font=font(10), bg=BG_COLOR, fg=TEXT_MUTED
         )
-        self.status_label.pack(anchor="w", pady=(2, 18))
+        self.status_label.pack(anchor="w", pady=(px(2), px(16)))
 
         # Packed before the list so it keeps its space when the window shrinks
         footer = tk.Frame(main, bg=BG_COLOR)
-        footer.pack(side="bottom", fill="x", pady=(16, 0))
-        self.btn_select = ModernButton(footer, text="Select", command=lambda: self._select(self._current[1]))
-        self.btn_select.configure(state="disabled", bg=SURFACE_COLOR)
+        footer.pack(side="bottom", fill="x", pady=(px(16), 0))
+        self.btn_select = ModernButton(footer, "Select", lambda: self._select(self._current[1]), "disabled")
         self.btn_select.pack(side="right")
-        ModernButton(
-            footer, text="Cancel", bg=BORDER_COLOR, hover_bg="#3a3a46", command=self.destroy
-        ).pack(side="right", padx=(0, 8))
+        ModernButton(footer, "Cancel", self.destroy, "secondary").pack(side="right", padx=(0, px(8)))
         if not HAS_PILLOW:
             tk.Label(
-                footer, text="Install Pillow to see previews", font=(FONT, 9), bg=BG_COLOR, fg=TEXT_MUTED
+                footer, text="Install Pillow to see previews", font=font(9), bg=BG_COLOR, fg=TEXT_MUTED
             ).pack(side="left")
 
         # Search box: shown once there is something to search
         self.search_box = tk.Frame(
-            main, bg=SURFACE_COLOR, padx=12, pady=7, highlightthickness=1, highlightbackground=BORDER_COLOR
+            main, bg=BG_COLOR, padx=px(12), pady=px(7), highlightthickness=1, highlightbackground=STRONG_BORDER,
+            highlightcolor=TEXT_MUTED
         )
-        tk.Label(self.search_box, text="Search", font=(FONT, 10), bg=SURFACE_COLOR, fg=TEXT_MUTED).pack(side="left")
+        tk.Label(self.search_box, text="Search", font=font(10), bg=BG_COLOR, fg=TEXT_MUTED).pack(side="left")
         self.search_var = tk.StringVar()
         self.search_var.trace_add("write", lambda *_: self._apply_filter())
         self.search_entry = tk.Entry(
-            self.search_box, textvariable=self.search_var, font=(FONT, 10), bg=SURFACE_COLOR, fg=TEXT_COLOR,
+            self.search_box, textvariable=self.search_var, font=font(10), bg=BG_COLOR, fg=TEXT_COLOR,
             insertbackground=TEXT_COLOR, relief="flat", bd=0, highlightthickness=0
         )
-        self.search_entry.pack(side="left", fill="x", expand=True, padx=(10, 0))
+        self.search_entry.pack(side="left", fill="x", expand=True, padx=(px(10), 0))
 
         self.list_frame = tk.Frame(main, bg=BG_COLOR)
         self.list_frame.pack(fill="both", expand=True)
@@ -109,7 +108,7 @@ class WallpaperBrowserDialog(tk.Toplevel):
             "Slim.Vertical.TScrollbar", troughcolor=BG_COLOR, background=BORDER_COLOR, bordercolor=BG_COLOR,
             lightcolor=BORDER_COLOR, darkcolor=BORDER_COLOR, gripcount=0, arrowsize=8
         )
-        style.map("Slim.Vertical.TScrollbar", background=[("active", "#3a3a46")])
+        style.map("Slim.Vertical.TScrollbar", background=[("active", STRONG_BORDER)])
         scrollbar = ttk.Scrollbar(
             self.list_frame, orient="vertical", command=canvas.yview, style="Slim.Vertical.TScrollbar"
         )
@@ -125,7 +124,7 @@ class WallpaperBrowserDialog(tk.Toplevel):
             if float(first) <= 0 and float(last) >= 1:
                 scrollbar.pack_forget()  # everything fits
             else:
-                scrollbar.pack(side="right", fill="y", padx=(8, 0))
+                scrollbar.pack(side="right", fill="y", padx=(px(8), 0))
         canvas.configure(yscrollcommand=on_scroll)
 
         # Windows and macOS report the wheel as <MouseWheel>, X11 as buttons 4 and 5
@@ -138,10 +137,10 @@ class WallpaperBrowserDialog(tk.Toplevel):
 
         # Centered message for the scanning, empty and no-match states
         self.message = tk.Frame(self.items_frame, bg=BG_COLOR)
-        self.message_title = tk.Label(self.message, font=(FONT, 11, "bold"), bg=BG_COLOR, fg=TEXT_COLOR)
+        self.message_title = tk.Label(self.message, font=font(11, "semibold"), bg=BG_COLOR, fg=TEXT_COLOR)
         self.message_title.pack()
         self.message_detail = tk.Label(
-            self.message, font=(FONT, 10), bg=BG_COLOR, fg=TEXT_MUTED, wraplength=380, justify="center"
+            self.message, font=font(10), bg=BG_COLOR, fg=TEXT_MUTED, wraplength=px(380), justify="center"
         )
         self.message_detail.pack(pady=(4, 0))
         self._show_message("Scanning Steam libraries...")
@@ -151,7 +150,7 @@ class WallpaperBrowserDialog(tk.Toplevel):
             return
         self.message_title.configure(text=title)
         self.message_detail.configure(text=detail)
-        self.message.pack(pady=(70, 0))
+        self.message.pack(pady=(px(70), 0))
 
     def _post(self, callback, *args):
         try:
@@ -165,7 +164,8 @@ class WallpaperBrowserDialog(tk.Toplevel):
             wallpapers = sorted(
                 find_installed_wallpapers(), key=lambda w: (w.asset_path is None, w.title.casefold())
             )
-            thumbnails = [_load_thumbnail(wp) for wp in wallpapers]
+            size = (px(THUMB_SIZE[0]), px(THUMB_SIZE[1]))
+            thumbnails = [_load_thumbnail(wp, size) for wp in wallpapers]
         except Exception as e:
             error = str(e)
             self._post(self._show_message, "Couldn't scan Steam libraries", error)
@@ -188,32 +188,32 @@ class WallpaperBrowserDialog(tk.Toplevel):
         self.message.pack_forget()
         for wp, thumbnail in zip(wallpapers, thumbnails):
             self._add_row(wp, thumbnail)
-        self.search_box.pack(fill="x", pady=(0, 12), before=self.list_frame)
+        self.search_box.pack(fill="x", pady=(0, px(12)), before=self.list_frame)
         self.search_entry.focus_set()
 
     def _add_row(self, wp, thumbnail):
         extractable = wp.asset_path is not None
 
         row = tk.Frame(
-            self.items_frame, bg=BG_COLOR, padx=8, pady=8, highlightthickness=1, highlightbackground=BG_COLOR
+            self.items_frame, bg=BG_COLOR, padx=px(8), pady=px(8), highlightthickness=1, highlightbackground=BG_COLOR
         )
         row.pack(fill="x")
 
-        thumb_box = tk.Frame(row, width=THUMB_SIZE[0], height=THUMB_SIZE[1], bg=BORDER_COLOR)
+        thumb_box = tk.Frame(row, width=px(THUMB_SIZE[0]), height=px(THUMB_SIZE[1]), bg=BORDER_COLOR)
         thumb_box.pack_propagate(False)
         thumb_box.pack(side="left")
         photo = ImageTk.PhotoImage(thumbnail) if thumbnail else None
         thumb = tk.Label(
             thumb_box, image=photo, text="" if photo else "No preview",
-            font=(FONT, 8), bg=BORDER_COLOR, fg=TEXT_MUTED, bd=0
+            font=font(8), bg=BORDER_COLOR, fg=TEXT_MUTED, bd=0
         )
         thumb.pack(fill="both", expand=True)
 
         info = tk.Frame(row, bg=BG_COLOR)
-        info.pack(side="left", fill="x", expand=True, padx=(14, 0))
+        info.pack(side="left", fill="x", expand=True, padx=(px(14), 0))
         title = tk.Label(
-            info, text=wp.title, font=(FONT, 10, "bold"), bg=BG_COLOR,
-            fg=TEXT_COLOR if extractable else TEXT_MUTED, anchor="w", justify="left", wraplength=380
+            info, text=wp.title, font=font(10, "semibold"), bg=BG_COLOR,
+            fg=TEXT_COLOR if extractable else TEXT_MUTED, anchor="w", justify="left", wraplength=px(380)
         )
         title.pack(anchor="w")
 
@@ -223,8 +223,8 @@ class WallpaperBrowserDialog(tk.Toplevel):
             detail = "Web wallpaper, nothing to extract"
         else:
             detail = "No image or video file found"
-        subtitle = tk.Label(info, text=detail, font=(FONT, 9), bg=BG_COLOR, fg=TEXT_MUTED, anchor="w")
-        subtitle.pack(anchor="w", pady=(2, 0))
+        subtitle = tk.Label(info, text=detail, font=font(9), bg=BG_COLOR, fg=TEXT_MUTED, anchor="w")
+        subtitle.pack(anchor="w", pady=(px(2), 0))
 
         entry = (row, wp, photo, (row, info, title, subtitle))
         self._rows.append(entry)
@@ -242,14 +242,14 @@ class WallpaperBrowserDialog(tk.Toplevel):
         bg = SURFACE_COLOR if hover or current else BG_COLOR
         for widget in entry[3]:
             widget.configure(bg=bg)
-        entry[0].configure(highlightbackground=PRIMARY_COLOR if current else bg)
+        entry[0].configure(highlightbackground=STRONG_BORDER if current else bg)
 
     def _highlight(self, entry):
         previous, self._current = self._current, entry
         if previous:
             self._paint(previous, hover=False)
         self._paint(entry, hover=True)
-        self.btn_select.configure(state="normal", bg=PRIMARY_COLOR)
+        self.btn_select.restyle(variant="primary")
 
     def _apply_filter(self):
         query = self.search_var.get().strip().casefold()
@@ -262,7 +262,7 @@ class WallpaperBrowserDialog(tk.Toplevel):
         if self._current not in matches and self._current:
             previous, self._current = self._current, None
             self._paint(previous, hover=False)
-            self.btn_select.configure(state="disabled", bg=SURFACE_COLOR)
+            self.btn_select.restyle(variant="disabled")
 
         if matches:
             self.message.pack_forget()
@@ -271,6 +271,5 @@ class WallpaperBrowserDialog(tk.Toplevel):
         self.canvas.yview_moveto(0)
 
     def _select(self, wp):
-        self.selected_asset_path = wp.asset_path
-        self.selected_title = wp.title
+        self.selected = wp
         self.destroy()
