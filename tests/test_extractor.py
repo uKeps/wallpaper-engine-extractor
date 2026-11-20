@@ -328,6 +328,15 @@ class FolderTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("does not exist", result.stdout)
 
+    def test_exe_without_console_opens_dropped_file_in_window(self):
+        # The windowed exe has no stdout: a file dropped on its icon must open the window, not extract silently
+        from wallpaper_engine_extractor import __main__ as cli
+        with mock.patch.object(sys, "stdout", None), mock.patch.object(sys, "argv", ["exe", "scene.pkg"]), \
+                mock.patch.object(cli, "_launch_gui") as gui, mock.patch.object(cli, "run_cli") as run:
+            cli.main()
+        gui.assert_called_once_with(Path("scene.pkg"))
+        run.assert_not_called()
+
     def test_cli_empty_input_is_rejected(self):
         result = self.run_cli("")
         self.assertEqual(result.returncode, 1)

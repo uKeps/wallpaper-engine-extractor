@@ -372,8 +372,10 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         self.btn_open.pack(side="right")
 
 
-def main():
+def main(path: Path | None = None):
     app = App()
+    if path:
+        app.after_idle(app.set_input, path)
     app.mainloop()
 
 

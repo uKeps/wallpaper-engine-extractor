@@ -154,7 +154,7 @@ def list_installed_wallpapers():
         print(f"    {location}")
 
 
-def _launch_gui():
+def _launch_gui(path: Path | None = None):
     try:
         from wallpaper_engine_extractor.gui import main as launch_gui
     except ImportError as e:
@@ -165,13 +165,19 @@ def _launch_gui():
             )
             sys.exit(1)
         raise
-    launch_gui()
+    launch_gui(path)
 
 
 def main():
     # Avoid crashes when workshop titles contain characters outside the console's codepage
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(errors="replace")
+
+    # The exe has no console (sys.stdout is None): a file dropped on its icon, or opened with it,
+    # goes to the window instead of being extracted silently next to that file
+    if sys.stdout is None and len(sys.argv) == 2 and not sys.argv[1].startswith("-"):
+        _launch_gui(Path(sys.argv[1]))
+        return
 
     # If no arguments are provided, default to launching the GUI
     if len(sys.argv) == 1:

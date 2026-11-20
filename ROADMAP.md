@@ -17,7 +17,7 @@
 <!-- Known problems we are living with. Never deleted silently: fixed, or moved to Done. -->
 | ID | Problem | Risk if ignored | Fix idea |
 |----|---------|-----------------|----------|
-| D1 | The exe is built windowed (`console=False`, `sys.stdout`/`sys.stderr` are `None`), so CLI arguments passed to it print nothing (`--version`, `--list-wallpapers`) and dragging files onto the exe runs headless with no error popup | Users of the winget command alias or drag-onto-exe think the app is broken | Keep docs saying the CLI is from source/pipx; or `AttachConsole` + reopen `CONOUT$` / ship a separate console shim |
+| D1 | The exe is built windowed (`console=False`, `sys.stdout` is `None`), so CLI flags passed to it print nothing (`--version`, `--list-wallpapers`). A single file opened with the exe now opens the window (2026-11-20, #12) | Users of the winget command alias think the CLI is broken | Keep docs saying the CLI is from source/pipx; or `AttachConsole` + reopen `CONOUT$` / ship a separate console shim |
 | D2 | Main image is picked heuristically (first full-screen layer in scene.json, else largest texture) | Scenes built from partial layers, puppets or video backgrounds get the wrong or no main image | Compose image layers from scene.json (position, scale, alpha), roughly 12–20h |
 | D3 | Unsigned PyInstaller onefile exe | Defender/SmartScreen false positives, manual review on winget | See O1 |
 | D4 | `WallpaperBrowserDialog` decodes all preview thumbnails before showing the list, and `gui.py` / `wallpaper_browser.py` have no automated GUI tests | Slow startup on Workshop libraries with 500+ items; GUI regressions rely on manual checks | Lazy/incremental thumbnail decoding in batches; add Tk smoke tests where `$DISPLAY` is available |
