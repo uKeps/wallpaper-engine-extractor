@@ -103,6 +103,7 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         self.output_path_var = tk.StringVar(value=str(get_default_output_dir()))
         self.cleanup_non_images_var = tk.BooleanVar(value=True)
         self.is_running = False
+        self.extracting = None  # the input of the current or last run
         self.result_dir = None
 
         self.create_widgets()
@@ -387,6 +388,7 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
 
         # Lock UI
         self.is_running = True
+        self.extracting = input_file
         self.btn_run.restyle("Extracting\u2026", "disabled")
         
         # Spawn background thread to prevent UI freezing
@@ -432,6 +434,9 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
     def show_result(self, paths: list[Path] | None):
         """Unlock the UI after a run: paths extracted, or None when it failed."""
         if not self.winfo_exists():
+            return
+        if self.input_path_var.get().strip() != self.extracting:
+            self.show_input()  # another wallpaper was picked meanwhile: this result isn't about it
             return
         self.btn_details.pack(side="left")
         if not paths:

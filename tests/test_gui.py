@@ -38,6 +38,7 @@ class MainWindowTests(unittest.TestCase):
 
     def test_failure_opens_the_log_and_success_offers_the_folder(self):
         self.app.set_input(self.folder)
+        self.app.extracting = self.app.input_path_var.get()  # as start_extraction does
         self.app.show_result(None)
         self.assertTrue(self.app.log_visible)
         self.app.toggle_log(False)
@@ -45,6 +46,15 @@ class MainWindowTests(unittest.TestCase):
         self.assertFalse(self.app.log_visible)
         self.assertEqual(self.app.result_dir, self.folder)
         self.assertIn("Saved 1 file", self.app.status_label["text"])
+
+
+    def test_a_result_for_a_wallpaper_no_longer_picked_is_dropped(self):
+        self.app.set_input(self.folder)
+        self.app.extracting = self.app.input_path_var.get()
+        self.app.input_path_var.set("")  # cleared while extracting
+        self.app.show_result([self.folder / "a.png"])
+        self.assertIsNone(self.app.result_dir)
+        self.assertEqual(self.app.btn_run.variant, "disabled")
 
 
 if __name__ == "__main__":

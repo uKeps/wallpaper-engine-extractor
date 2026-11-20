@@ -203,7 +203,9 @@ class ModernButton(tk.Label):
 
     def restyle(self, text: str | None = None, variant: str | None = None):
         self.text = self.text if text is None else text
-        self.variant = variant or self.variant
+        if variant and variant != self.variant:
+            # a modal dialog can swallow <Leave>, so don't carry the hover look into a new role
+            self.variant, self.hover = variant, False
         fill, fg, outline, hover = VARIANTS[self.variant]
         fill = hover if self.hover else fill
         f = tkfont.Font(font=self["font"])
@@ -224,12 +226,11 @@ class ModernButton(tk.Label):
             self.restyle()
 
     def _click(self, event=None):
-        if self.variant == "disabled":
-            return
-        if event and event.type == tk.EventType.ButtonRelease and self.winfo_containing(
-                event.x_root, event.y_root) is not self:
-            return  # released outside the button
-        self.command()
+        released_outside = event is not None and event.type == tk.EventType.ButtonRelease and \
+            self.winfo_containing(event.x_root, event.y_root) is not self
+        if self.variant != "disabled" and not released_outside:
+            self.command()
+        return "break"  # Enter on a focused button must not also reach the window's Enter binding
 
 
 class Card(tk.Canvas):
