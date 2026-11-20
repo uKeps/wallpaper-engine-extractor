@@ -6,7 +6,7 @@ from tkinter import ttk
 
 from wallpaper_engine_extractor.steam_finder import find_installed_wallpapers
 from wallpaper_engine_extractor.theme import (
-    BG_COLOR, BORDER_COLOR, FONT, PRIMARY_COLOR, SURFACE_COLOR, TEXT_COLOR, TEXT_MUTED, ModernButton,
+    BG_COLOR, BORDER_COLOR, FONT, PRIMARY_COLOR, SECONDARY_HOVER, SURFACE_COLOR, TEXT_COLOR, TEXT_MUTED, ModernButton,
 )
 
 try:
@@ -18,13 +18,13 @@ except ImportError:
 THUMB_SIZE = (96, 54)
 
 
-def _load_thumbnail(wp):
+def _load_thumbnail(wp, size=THUMB_SIZE):
     """Decode a preview off the UI thread; the Tk image is made later, on the main thread."""
     if not HAS_PILLOW or wp.preview_path is None:
         return None
     try:
         with Image.open(wp.preview_path) as image:
-            return ImageOps.fit(image.convert("RGB"), THUMB_SIZE)
+            return ImageOps.fit(image.convert("RGB"), size)
     except Exception:
         return None
 
@@ -48,8 +48,7 @@ class WallpaperBrowserDialog(tk.Toplevel):
         self.grab_set()
         self.focus_set()
 
-        self.selected_asset_path = None
-        self.selected_title = None
+        self.selected = None  # the WallpaperInfo picked, if any
         self._rows = []  # (frame, wallpaper, PhotoImage kept alive, widgets to repaint)
         self._current = None
 
@@ -76,7 +75,7 @@ class WallpaperBrowserDialog(tk.Toplevel):
         self.btn_select.configure(state="disabled", bg=SURFACE_COLOR)
         self.btn_select.pack(side="right")
         ModernButton(
-            footer, text="Cancel", bg=BORDER_COLOR, hover_bg="#3a3a46", command=self.destroy
+            footer, text="Cancel", bg=BORDER_COLOR, hover_bg=SECONDARY_HOVER, command=self.destroy
         ).pack(side="right", padx=(0, 8))
         if not HAS_PILLOW:
             tk.Label(
@@ -109,7 +108,7 @@ class WallpaperBrowserDialog(tk.Toplevel):
             "Slim.Vertical.TScrollbar", troughcolor=BG_COLOR, background=BORDER_COLOR, bordercolor=BG_COLOR,
             lightcolor=BORDER_COLOR, darkcolor=BORDER_COLOR, gripcount=0, arrowsize=8
         )
-        style.map("Slim.Vertical.TScrollbar", background=[("active", "#3a3a46")])
+        style.map("Slim.Vertical.TScrollbar", background=[("active", SECONDARY_HOVER)])
         scrollbar = ttk.Scrollbar(
             self.list_frame, orient="vertical", command=canvas.yview, style="Slim.Vertical.TScrollbar"
         )
@@ -271,6 +270,5 @@ class WallpaperBrowserDialog(tk.Toplevel):
         self.canvas.yview_moveto(0)
 
     def _select(self, wp):
-        self.selected_asset_path = wp.asset_path
-        self.selected_title = wp.title
+        self.selected = wp
         self.destroy()

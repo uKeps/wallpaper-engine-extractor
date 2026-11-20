@@ -11,6 +11,8 @@ PRIMARY_COLOR = "#2563eb"  # white text on it is 5.17:1
 PRIMARY_HOVER = "#1d4ed8"
 ACCENT_COLOR = "#10b981"
 BORDER_COLOR = "#2e2e38"
+SECONDARY_HOVER = "#3a3a46"
+ERROR_COLOR = "#ef4444"
 LOG_BG = "#0d0d0f"
 
 # Tk falls back to the closest system font where Segoe UI isn't installed
@@ -40,6 +42,11 @@ class ModernButton(tk.Button):
             highlightbackground=master["bg"],
         )
         super().__init__(master, **{**options, **kwargs})
+        self.normal_bg, self.hover_bg = normal_bg, hover_bg
 
-        self.bind("<Enter>", lambda e: self["state"] != "disabled" and self.configure(bg=hover_bg))
-        self.bind("<Leave>", lambda e: self["state"] != "disabled" and self.configure(bg=normal_bg))
+        self.bind("<Enter>", lambda e: self["state"] != "disabled" and self.configure(bg=self.hover_bg))
+        self.bind("<Leave>", lambda e: self["state"] != "disabled" and self.configure(bg=self.normal_bg))
+
+    def set_colors(self, bg: str, hover_bg: str):
+        self.normal_bg, self.hover_bg = bg, hover_bg
+        self.configure(bg=bg, activebackground=hover_bg)
