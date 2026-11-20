@@ -35,7 +35,13 @@ class WallpaperBrowserDialog(tk.Toplevel):
     def __init__(self, master):
         super().__init__(master)
         self.title("Find in Steam")
-        self.geometry(f"600x560+{master.winfo_rootx() + 40}+{master.winfo_rooty() + 40}")
+        w, h = 600, 560
+        rx, ry = master.winfo_rootx(), master.winfo_rooty()
+        sw, sh = master.winfo_screenwidth(), master.winfo_screenheight()
+        # Clamp only on the primary screen so multi-monitor setups aren't snapped away from `master`
+        x = max(0, min(rx + 40, max(0, sw - w))) if 0 <= rx < sw else rx + 40
+        y = max(0, min(ry + 40, max(0, sh - h - 40))) if 0 <= ry < sh else ry + 40
+        self.geometry(f"{w}x{h}+{x}+{y}")
         self.minsize(460, 360)
         self.configure(bg=BG_COLOR)
         self.transient(master)
@@ -147,6 +153,13 @@ class WallpaperBrowserDialog(tk.Toplevel):
         self.message_detail.configure(text=detail)
         self.message.pack(pady=(70, 0))
 
+    def _post(self, callback, *args):
+        try:
+            if self.winfo_exists():
+                self.after(0, callback, *args)
+        except (tk.TclError, RuntimeError):
+            pass
+
     def _scan_worker(self):
         try:
             wallpapers = sorted(
@@ -155,9 +168,9 @@ class WallpaperBrowserDialog(tk.Toplevel):
             thumbnails = [_load_thumbnail(wp) for wp in wallpapers]
         except Exception as e:
             error = str(e)
-            self.after(0, lambda: self._show_message("Couldn't scan Steam libraries", error))
+            self._post(self._show_message, "Couldn't scan Steam libraries", error)
             return
-        self.after(0, lambda: self._populate(wallpapers, thumbnails))
+        self._post(self._populate, wallpapers, thumbnails)
 
     def _populate(self, wallpapers, thumbnails):
         if not self.winfo_exists():

@@ -30,3 +30,11 @@ Releases = "https://github.com/uKeps/wallpaper-engine-extractor/releases"
 [tool.hatch.version]
 path = "assets/version_info.txt"
 pattern = 'StringStruct\("ProductVersion", "(?P<version>\d+\.\d+\.\d+)'
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    ".claude/**",
+    ".github/**",
+    ".gstack/**",
+    "src/**",
+]

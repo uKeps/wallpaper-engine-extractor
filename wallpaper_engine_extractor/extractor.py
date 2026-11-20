@@ -135,9 +135,11 @@ def _inside(folder: Path, rel: str) -> Path:
     """folder/rel without touching the disk, ValueError if it leaves folder.
 
     On Windows an absolute or UNC rel (//host/share/x) replaces folder, and opening it sends the
-    user's login hash to that host.
+    user's login hash to that host. Backslashes count as separators everywhere, as on Windows.
     """
-    path = Path(os.path.normpath(folder / rel))
+    if not isinstance(rel, str):
+        raise ValueError(f"{rel!r} is not a path")
+    path = Path(os.path.normpath(folder / rel.replace("\\", "/")))
     if not path.is_relative_to(folder):
         raise ValueError(f"{rel} is outside the package")
     return path
@@ -162,8 +164,14 @@ def _vec(v, n: int) -> list[float] | None:
 
 def _scene_main_texture(root: Path, sizes: dict[Path, tuple[int, int]]) -> Path | None:
     """The .tex of the bottom-most scene.json image layer that covers the screen, else of the largest layer."""
+    json_by_rel = {p.relative_to(root).as_posix().casefold(): p for p in root.rglob("*.json") if p.is_file()}
+    sizes_by_rel = {t.relative_to(root).as_posix().casefold(): t for t in sizes if t.is_relative_to(root)}
+
     def load(rel) -> dict:
-        data = json.loads(_inside(root, rel).read_text(encoding="utf-8-sig", errors="replace"))
+        path = _inside(root, rel)
+        if not path.is_file():  # a package made on Windows may name files in another case
+            path = json_by_rel.get(path.relative_to(root).as_posix().casefold(), path)
+        data = json.loads(path.read_text(encoding="utf-8-sig", errors="replace"))
         return data if isinstance(data, dict) else {}
 
     scene = load("scene.json")
@@ -181,7 +189,8 @@ def _scene_main_texture(root: Path, sizes: dict[Path, tuple[int, int]]) -> Path 
             tex = _inside(root / "materials", f"{material['passes'][0]['textures'][0]}.tex")
         except (OSError, ValueError, LookupError, TypeError):
             continue  # e.g. a model from Wallpaper Engine's own assets, not in this package
-        if tex not in sizes or sizes[tex][0] * sizes[tex][1] < MIN_MAIN_IMAGE_AREA:
+        tex = tex if tex in sizes else sizes_by_rel.get(tex.relative_to(root).as_posix().casefold())
+        if tex is None or sizes[tex][0] * sizes[tex][1] < MIN_MAIN_IMAGE_AREA:
             continue  # not in the package, or a tiny texture stretched into a backdrop
         size = _vec(obj.get("size"), 2)
         if not size or not all(size):
@@ -266,11 +275,13 @@ def extract_package(
     
     # 1. Extract raw files from the package
     with open(pkg_path, "rb") as pkg_file:
+        pkg_size = os.fstat(pkg_file.fileno()).st_size
         for i, file_entry in enumerate(info.files):
-            # resolve() only once the name stays inside: on Windows it opens the path (see _inside)
-            file_path = Path(os.path.normpath(base_path / file_entry.name))
-            if file_path.is_relative_to(base_path):
-                file_path = file_path.resolve()
+            try:
+                # resolve() only once the name stays inside: on Windows it opens the path (see _inside)
+                file_path = _inside(base_path, file_entry.name).resolve()
+            except ValueError:
+                file_path = base_path
             if not file_path.is_relative_to(base_path) or file_path == base_path:
                 log(f"Skipping unsafe path in package: {file_entry.name}")
                 continue
@@ -281,6 +292,8 @@ def extract_package(
             file_path.parent.mkdir(parents=True, exist_ok=True)
             
             log(f"[{i+1}/{len(info.files)}] Extracting: {file_entry.name}")
+            if info.data_offset + file_entry.offset + file_entry.length > pkg_size:
+                raise ValueError(f"{PACKAGE_ERROR}: {file_entry.name} is cut off")
             pkg_file.seek(info.data_offset + file_entry.offset)
             data = pkg_file.read(file_entry.length)
             if len(data) < file_entry.length:

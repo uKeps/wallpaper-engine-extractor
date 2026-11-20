@@ -28,7 +28,7 @@ share/python-wheels/
 # PyInstaller
 *.manifest
 *.spec
-!WallpaperExtractor.spec
+!/WallpaperExtractor.spec
 
 # Installer logs
 pip-log.txt
@@ -41,9 +41,11 @@ htmlcov/
 .pytest_cache/
 vts/
 
-# IDEs
+# IDEs and local agent tooling
 .vscode/
 .idea/
+.claude/
+.gstack/
 
 # virtualenv
 venv/

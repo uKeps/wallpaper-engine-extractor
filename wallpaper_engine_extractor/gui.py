@@ -54,11 +54,17 @@ def get_default_output_dir() -> Path:
     return base / "Wallpaper Extracted"
 
 
-def open_folder(path: Path):
-    if sys.platform == "win32":
-        os.startfile(path)
-    else:
-        subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(path)])
+def open_folder(path: Path | None):
+    if not path or not path.exists():
+        messagebox.showerror("Error", "Output folder no longer exists.")
+        return
+    try:
+        if sys.platform == "win32":
+            os.startfile(path)
+        else:
+            subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(path)])
+    except OSError as e:
+        messagebox.showerror("Error", f"Could not open folder:\n{e}")
 
 
 class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
@@ -203,14 +209,20 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
     def set_input(self, path: Path):
         """Accept a wallpaper file, or the wallpaper's folder, preview or project.json."""
         folder = path if path.is_dir() else path.parent
-        wallpaper = wallpaper_from_folder(folder) if (folder / "project.json").is_file() else None
+        wallpaper = wallpaper_from_folder(folder) if path.is_dir() or (folder / "project.json").is_file() else None
         if path.is_dir() or path.suffix.lower() not in SUPPORTED_INPUT_EXTENSIONS:
             if not (wallpaper and wallpaper.asset_path):
-                messagebox.showerror(
-                    "Unsupported File",
-                    f"'{path.name}' is not a supported wallpaper file.\n"
-                    "Drop a wallpaper folder, or a .pkg, .tex, .mp4 or .webm file."
-                )
+                if wallpaper and wallpaper.wp_type in ("web", "application"):
+                    messagebox.showerror(
+                        "Cannot Extract Wallpaper",
+                        f'"{wallpaper.title}" is a {wallpaper.wp_type} wallpaper and has no image or video to extract.'
+                    )
+                else:
+                    messagebox.showerror(
+                        "Unsupported File",
+                        f"'{path.name}' is not a supported wallpaper file.\n"
+                        "Drop a wallpaper folder, or a .pkg, .tex, .mp4 or .webm file."
+                    )
                 return
             path = wallpaper.asset_path
         self.input_path_var.set(str(path))
@@ -251,11 +263,20 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
 
         self.set_input(Path(paths[0]))
 
+    def _post(self, callback, *args):
+        try:
+            if self.winfo_exists():
+                self.after(0, lambda: self.winfo_exists() and callback(*args))
+        except (tk.TclError, RuntimeError):
+            pass
+
     def log_message(self, message: str):
         # Called from the extraction thread: hand the widget update to the Tk main loop
-        self.after(0, self._append_log, message)
+        self._post(self._append_log, message)
 
     def _append_log(self, message: str):
+        if not self.winfo_exists():
+            return
         self.log_text.configure(state="normal")
         self.log_text.insert("end", message + "\n")
         self.log_text.see("end")
@@ -330,17 +351,19 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
             if suffix != ".pkg":
                 self.log_message(f"Saved {len(paths)} file(s) to {output_path}")
 
-            self.after(0, self.show_done, paths)
+            self._post(self.show_done, paths)
 
         except Exception as e:
             self.log_message(f"\nFailed: {e}")
-            self.after(0, lambda: self.status_label.configure(text="Extraction failed, see the log below", fg="#ef4444"))
+            self._post(lambda: self.status_label.configure(text="Extraction failed, see the log below", fg="#ef4444"))
 
         finally:
             self.is_running = False
-            self.after(0, lambda: self.btn_run.configure(state="normal", bg=PRIMARY_COLOR, text="Extract"))
+            self._post(lambda: self.btn_run.configure(state="normal", bg=PRIMARY_COLOR, text="Extract"))
 
     def show_done(self, paths: list[Path]):
+        if not self.winfo_exists():
+            return
         if not paths:
             self.status_label.configure(text="Nothing was extracted, see the log", fg="#f59e0b")
             return
@@ -349,8 +372,10 @@ class App(TkinterDnD.Tk if HAS_DND else tk.Tk):
         self.btn_open.pack(side="right")
 
 
-def main():
+def main(path: Path | None = None):
     app = App()
+    if path:
+        app.after_idle(app.set_input, path)
     app.mainloop()
 
 

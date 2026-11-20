@@ -314,6 +314,20 @@ class CorruptTexTest(TempDirCase):
             with self.assertRaises(ValueError):
                 self.extract(tex)
 
+    @unittest.skipUnless(tp.HAS_PILLOW, "Pillow not installed")
+    def test_gif_corrupt_frametime_and_zero_size_raise_value_error(self):
+        bad_frames = [
+            (0, float("nan"), 0, 0, 2, 0, 0, 2),
+            (0, -0.5, 0, 0, 2, 0, 0, 2),
+            (0, 1000.0, 0, 0, 2, 0, 0, 2),
+            (0, 0.1, 0, 0, 0, 0, 0, 0),
+        ]
+        for n, frame in enumerate(bad_frames):
+            tex = tex_bytes(flags=tp.FLAG_IS_GIF, size=(4, 4), images=[[mip(4, 4, b"\0" * 64)]],
+                            texs="TEXS0002", frames=[frame])
+            with self.subTest(n=n), self.assertRaises(ValueError):
+                self.extract(tex, f"badgif{n}")
+
 
 if __name__ == "__main__":
     unittest.main()
