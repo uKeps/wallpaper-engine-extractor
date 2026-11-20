@@ -2,7 +2,7 @@
 
 ## Now
 <!-- In progress. At most 3. Each names its branch/PR when it has one. -->
-- [ ] N1 — v1.2.0 release — next step: configure PyPI trusted publisher (`pypi` environment in GitHub repo settings + pending publisher on pypi.org for `publish.yml`), then bump all 4 version fields in `assets/version_info.txt` to `1.2.0` in a PR and push the `v1.2.0` tag
+- [ ] N1 — PyPI upload of 1.2.0 — next step: on pypi.org add a pending trusted publisher (project `wallpaper-engine-extractor`, owner `uKeps`, repo `wallpaper-engine-extractor`, workflow `publish.yml`, environment `pypi`), then re-run the failed `Publish to PyPI` run of the `v1.2.0` tag. The exe release does not depend on it
 
 ## Next
 <!-- Ordered; the top item is what starts when Now frees up. At most 10. -->
@@ -40,6 +40,7 @@
 
 ## Done (recent)
 <!-- Last ~10 items, newest first, each with its PR/commit. Older ones: delete; git has them. -->
+- 2026-11-20 — v1.2.0 tagged: exe and checksum on the GitHub release (#15)
 - 2026-11-20 — New look: neutral zinc palette (follows the Windows light/dark setting), dashed drop zone, file card with preview and status, footer actions, log behind "Show log"; crisp on scaled Windows displays (DPI aware) with a dark title bar; first Tk smoke tests (#14)
 - 2026-11-20 — Path/GIF hardening, Steam scan survives unreadable drives, a file opened with the exe opens the window (#12)
 - 2026-11-20 — Never open a path from a wallpaper that leaves its folder (Windows UNC/NTLM leak), skip tiny stretched textures as the main image (#13)
