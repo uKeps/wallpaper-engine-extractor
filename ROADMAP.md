@@ -37,6 +37,7 @@
 
 ## Done (recent)
 <!-- Last ~10 items, newest first, each with its PR/commit. Older ones: delete; git has them. -->
+- 2026-11-20 — Never open a path from a wallpaper that leaves its folder (Windows UNC/NTLM leak), skip tiny stretched textures as the main image (#13)
 - 2026-10-31 — Save a copy of the scene's main image at the top of the output folder (#11)
 - 2026-10-31 — Fix Linux Steam paths (Snap, `XDG_DATA_HOME`, symlink dedup), report skipped web/application wallpapers, convert loose `.tex` folders, and add `--version` (#10)
 - 2026-10-30 — Installable from PyPI as `wallpaper-engine-extractor`; package renamed from `src` (#9)

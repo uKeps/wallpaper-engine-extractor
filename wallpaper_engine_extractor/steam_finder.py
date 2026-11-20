@@ -118,65 +118,37 @@ def find_workshop_content_dirs() -> list[Path]:
     return content_dirs
 
 
-def _safe_child(folder: Path, raw_name: object) -> Optional[Path]:
-    """Resolve a relative path inside `folder` safely, falling back to case-insensitive lookup."""
-    if not isinstance(raw_name, str) or not raw_name.strip():
-        return None
-    rel = raw_name.strip().replace("\\", "/")
-    if rel.startswith("/") or Path(rel).is_absolute() or Path(rel).drive or re.match(r"^[A-Za-z]:", rel):
-        return None
+def _find_file(folder: Path, names: list, exts: tuple[str, ...]) -> Optional[Path]:
+    """The file in folder called one of names (in any case), else the first file with one of exts.
+
+    Only the file name part of each name is used: Wallpaper Engine keeps these files at the folder
+    root, and on Windows a UNC path (//host/share/x) would be checked over the network and leak
+    the user's login.
+    """
     try:
-        folder_real = folder.resolve()
-        exact = folder / rel
-        if exact.is_file() and exact.resolve().is_relative_to(folder_real):
-            return exact
-        cur = folder
-        for part in Path(rel).parts:
-            if part in ("", ".", ".."):
-                return None
-            cur = next((p for p in cur.iterdir() if p.name.casefold() == part.casefold()), None)
-            if cur is None:
-                return None
-        return cur if cur.is_file() and cur.resolve().is_relative_to(folder_real) else None
+        files = sorted((p for p in folder.iterdir() if p.is_file()), key=lambda p: p.name.casefold())
     except OSError:
         return None
-
-
-def _first_by_ext(folder: Path, exts: tuple[str, ...]) -> Optional[Path]:
-    """First regular file in `folder` matching one of `exts` (case-insensitive, deterministic order)."""
-    try:
-        entries = sorted(folder.iterdir(), key=lambda p: p.name.casefold())
-    except OSError:
-        return None
-    for entry in entries:
-        if entry.is_file() and entry.suffix.lower() in exts:
-            return entry
-    return None
+    by_name = {p.name.casefold(): p for p in files}
+    for name in names:
+        if isinstance(name, str) and name.strip():
+            match = by_name.get(Path(name.strip().replace("\\", "/")).name.casefold())
+            if match and match.suffix.lower() in exts:
+                return match
+    return next((p for p in files if p.suffix.lower() in exts), None)
 
 
 def _find_preview(folder: Path, project: dict) -> Optional[Path]:
-    candidate = _safe_child(folder, project.get("preview"))
-    if candidate:
-        return candidate
-    for ext in ("jpg", "jpeg", "png", "gif"):
-        candidate = _safe_child(folder, f"preview.{ext}")
-        if candidate:
-            return candidate
-    return None
+    exts = (".jpg", ".jpeg", ".png", ".gif")
+    return _find_file(folder, [project.get("preview"), *(f"preview{e}" for e in exts)], exts)
 
 
 def _find_pkg(folder: Path, project: dict) -> Optional[Path]:
-    candidate = _safe_child(folder, project.get("file"))
-    if candidate and candidate.suffix.lower() == ".pkg":
-        return candidate
-    return _safe_child(folder, "scene.pkg") or _first_by_ext(folder, (".pkg",))
+    return _find_file(folder, [project.get("file"), "scene.pkg"], (".pkg",))
 
 
 def _find_video(folder: Path, project: dict) -> Optional[Path]:
-    candidate = _safe_child(folder, project.get("file"))
-    if candidate and candidate.suffix.lower() in (".mp4", ".webm"):
-        return candidate
-    return _first_by_ext(folder, (".mp4", ".webm"))
+    return _find_file(folder, [project.get("file")], (".mp4", ".webm"))
 
 
 def wallpaper_from_folder(folder: Path) -> Optional[WallpaperInfo]:

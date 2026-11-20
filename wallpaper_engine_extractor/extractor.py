@@ -131,6 +131,20 @@ def _tex_size(tex_path: Path) -> tuple[int, int]:
         return (0, 0)
 
 
+def _inside(folder: Path, rel: str) -> Path:
+    """folder/rel without touching the disk, ValueError if it leaves folder.
+
+    On Windows an absolute or UNC rel (//host/share/x) replaces folder, and opening it sends the
+    user's login hash to that host. Backslashes count as separators everywhere, as on Windows.
+    """
+    if not isinstance(rel, str):
+        raise ValueError(f"{rel!r} is not a path")
+    path = Path(os.path.normpath(folder / rel.replace("\\", "/")))
+    if not path.is_relative_to(folder):
+        raise ValueError(f"{rel} is outside the package")
+    return path
+
+
 def _value(v):
     """Unwrap a value bound to a user property: {"user": "name", "value": ...}."""
     return v.get("value") if isinstance(v, dict) else v
@@ -154,16 +168,9 @@ def _scene_main_texture(root: Path, sizes: dict[Path, tuple[int, int]]) -> Path 
     sizes_by_rel = {t.relative_to(root).as_posix().casefold(): t for t in sizes if t.is_relative_to(root)}
 
     def load(rel) -> dict:
-        if not isinstance(rel, str):
-            return {}
-        norm = rel.replace("\\", "/").lstrip("/")
-        path = (root / norm).resolve()
-        if not path.is_relative_to(root):
-            return {}
-        if not path.is_file():
-            path = json_by_rel.get(norm.casefold())
-            if path is None:
-                return {}
+        path = _inside(root, rel)
+        if not path.is_file():  # a package made on Windows may name files in another case
+            path = json_by_rel.get(path.relative_to(root).as_posix().casefold(), path)
         data = json.loads(path.read_text(encoding="utf-8-sig", errors="replace"))
         return data if isinstance(data, dict) else {}
 
@@ -179,21 +186,12 @@ def _scene_main_texture(root: Path, sizes: dict[Path, tuple[int, int]]) -> Path 
             continue
         try:
             material = load(load(obj["image"])["material"])
-            tex_ref = material["passes"][0]["textures"][0]
-            if not isinstance(tex_ref, str) or not tex_ref:
-                continue
-            tex_rel = tex_ref.replace("\\", "/").lstrip("/")
-            if not tex_rel.lower().endswith(".tex"):
-                tex_rel += ".tex"
-            if not tex_rel.lower().startswith("materials/"):
-                tex_rel = f"materials/{tex_rel}"
-            tex = (root / tex_rel).resolve()
-            if tex not in sizes:
-                tex = sizes_by_rel.get(tex_rel.casefold())
+            tex = _inside(root / "materials", f"{material['passes'][0]['textures'][0]}.tex")
         except (OSError, ValueError, LookupError, TypeError):
             continue  # e.g. a model from Wallpaper Engine's own assets, not in this package
-        if tex is None or tex not in sizes:
-            continue
+        tex = tex if tex in sizes else sizes_by_rel.get(tex.relative_to(root).as_posix().casefold())
+        if tex is None or sizes[tex][0] * sizes[tex][1] < MIN_MAIN_IMAGE_AREA:
+            continue  # not in the package, or a tiny texture stretched into a backdrop
         size = _vec(obj.get("size"), 2)
         if not size or not all(size):
             size = sizes[tex]
@@ -279,8 +277,11 @@ def extract_package(
     with open(pkg_path, "rb") as pkg_file:
         pkg_size = os.fstat(pkg_file.fileno()).st_size
         for i, file_entry in enumerate(info.files):
-            entry_name = file_entry.name.replace("\\", "/")
-            file_path = (base_path / entry_name).resolve()
+            try:
+                # resolve() only once the name stays inside: on Windows it opens the path (see _inside)
+                file_path = _inside(base_path, file_entry.name).resolve()
+            except ValueError:
+                file_path = base_path
             if not file_path.is_relative_to(base_path) or file_path == base_path:
                 log(f"Skipping unsafe path in package: {file_entry.name}")
                 continue
