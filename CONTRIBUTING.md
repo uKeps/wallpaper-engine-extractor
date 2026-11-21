@@ -21,7 +21,7 @@ pipx run ruff==0.12.0 check --select F --target-version py310 .
 
 Commits and PR titles follow [Conventional Commits](https://www.conventionalcommits.org/). Everything in the repo is in English: code, comments, docs, commit messages.
 
-Releases: bump `assets/version_info.txt` in a PR, then push a `v*` tag. That file is the only place the version lives: `pyproject.toml` reads the PyPI version from its `ProductVersion` line. The tag triggers two workflows: `build.yml` attaches the exe and `checksums.txt` to the release, and `publish.yml` uploads the wheel and sdist to PyPI through trusted publishing (no token in the repo). `build.yml` can also be run by hand from the Actions tab; the exe and checksum then show up as a build artifact instead of a release.
+Releases: bump `assets/version_info.txt` in a PR, then push a `v*` tag. That file is the only place the version lives: `pyproject.toml` reads the package version from its `ProductVersion` line. The tag makes `build.yml` attach the exe and `checksums.txt` to the release. `build.yml` can also be run by hand from the Actions tab; the exe and checksum then show up as a build artifact instead of a release. The app is not published to PyPI: Windows users get the exe, everyone else runs it from source.
 
 ## Optional dependencies are genuinely optional
 
